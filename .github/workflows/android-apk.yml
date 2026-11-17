@@ -29,12 +29,6 @@ jobs:
           node-version: '22.13.0'
           cache: npm
 
-      - name: Configura Java 17
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
 
       - name: Configura Android SDK
         uses: android-actions/setup-android@v4
@@ -56,6 +50,14 @@ jobs:
 
       - name: Genera progetto Android
         run: npx expo prebuild --platform android --no-install
+
+      - name: Configura Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
 
       - name: Prepara firma originale
         shell: bash
