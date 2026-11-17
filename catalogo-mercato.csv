@@ -1,0 +1,147 @@
+id,name,brand,category,priceEUR,currency,priceCheckedAt,sourceUrl,stock,referenceOnly,sellable
+MKT-001,Reggiseno Balconcino Paris Mystic Secret,Tezenis,Reggiseni,18.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-002,Reggiseno Triangolo Havana Leggermente Imbottito Mystic Secret,Tezenis,Reggiseni,19.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-003,Reggiseno Bra Top Imbottito Mystic Secret,Tezenis,Reggiseni,25.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-004,Reggiseno Push-Up Imbottito Petalo Essential Details,Tezenis,Reggiseni,18.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-005,Reggiseno Push-Up Athens Essential Details,Tezenis,Reggiseni,18.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-006,Reggiseno Triangolo Havana Leggermente Imbottito Essential Details,Tezenis,Reggiseni,19.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-007,Reggiseno Push-Up Imbottito Venice Divine Couture,Tezenis,Reggiseni,18.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-008,Reggiseno Balconcino Leggermente Imbottito Wien Divine Couture,Tezenis,Reggiseni,19.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-009,Reggiseno Super Push-up in Pizzo Riciclato Malibù,Tezenis,Reggiseni,16.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-010,Reggiseno Triangolo in Pizzo Riciclato Havana,Tezenis,Reggiseni,14.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-011,Reggiseno Balconcino Paris Divine Couture,Tezenis,Reggiseni,18.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-012,Reggiseno Push-Up Athens Sparkling Vibe,Tezenis,Reggiseni,18.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-013,Reggiseno Balconcino Pizzo Riciclato Full Coverage Prague,Tezenis,Reggiseni,16.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-014,Reggiseno Triangolo Lisbon Sparkling Vibe,Tezenis,Reggiseni,16.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-015,Reggiseno Balconcino Leggermente Imbottito Pizzo Riciclato Wien,Tezenis,Reggiseni,14.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-016,Reggiseno Push-Up Imbottito Berlin Shine Dream,Tezenis,Reggiseni,19.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-017,Reggiseno Push-Up Athens Shine Dream,Tezenis,Reggiseni,18.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-018,Reggiseno Balconcino Paris Luxury Look,Tezenis,Reggiseni,18.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-019,Reggiseno Bra Top Imbottito Pizzo Pretty Muse,Tezenis,Reggiseni,25.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-020,Reggiseno Super Push-up Malibù Luxury Look,Tezenis,Reggiseni,18.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-021,Reggiseno Balconcino Paris Pretty Muse,Tezenis,Reggiseni,18.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-022,Reggiseno Push-Up Scollato Imbottito Sparkling Vibe,Tezenis,Reggiseni,18.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/reggiseni/,0,True,False
+MKT-023,Perizoma con Fianchetto Tanga Mystic Secret Rosso,Tezenis,"Slip, tanga e brasiliane",6.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-024,Perizoma Sgambato in Pizzo Riciclato,Tezenis,"Slip, tanga e brasiliane",5.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-025,Brasiliano Mystic Secret Rosso,Tezenis,"Slip, tanga e brasiliane",7.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-026,Culotte Brasiliana Microfibra e Pizzo Riciclati,Tezenis,"Slip, tanga e brasiliane",5.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-027,Perizoma con Fianchetto Tanga Essential Details Rosso,Tezenis,"Slip, tanga e brasiliane",6.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-028,Brasiliana con Cotone Organico e Pizzo Riciclato,Tezenis,"Slip, tanga e brasiliane",5.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-029,Brasiliano Essential Details Rosso,Tezenis,"Slip, tanga e brasiliane",7.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-030,Brasiliano in Pizzo Divine Couture,Tezenis,"Slip, tanga e brasiliane",7.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-031,Perizoma con Fianchetto Tanga Mystic Secret,Tezenis,"Slip, tanga e brasiliane",6.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-032,Brasiliana Taglio Vivo Cotone Organico e Pizzo Riciclato,Tezenis,"Slip, tanga e brasiliane",5.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-033,Perizoma Pizzo Divine Couture,Tezenis,"Slip, tanga e brasiliane",6.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-034,Brasiliana in Pizzo Riciclato,Tezenis,"Slip, tanga e brasiliane",5.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-035,Brasiliano Paillettes Shine Dream,Tezenis,"Slip, tanga e brasiliane",6.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-036,Brasiliano Pizzo e Strass Sparkling Vibe,Tezenis,"Slip, tanga e brasiliane",7.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-037,Perizoma con Fianchetto Tanga Sparkling Vibe,Tezenis,"Slip, tanga e brasiliane",6.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-038,Brasiliano Mystic Secret,Tezenis,"Slip, tanga e brasiliane",7.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-039,Perizoma con Fianchetto Tanga Shine Dream,Tezenis,"Slip, tanga e brasiliane",5.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-040,Slip in Cotone Organico,Tezenis,"Slip, tanga e brasiliane",4.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-041,Brasiliano Essential Details,Tezenis,"Slip, tanga e brasiliane",7.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-042,Perizoma con Fianchetto Tanga Pretty Muse,Tezenis,"Slip, tanga e brasiliane",6.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-043,Brasiliano Luxury Look,Tezenis,"Slip, tanga e brasiliane",6.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-044,Perizoma con Fianchetto Tanga Luxury Look,Tezenis,"Slip, tanga e brasiliane",6.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-045,Body balconcino senza ferretto,Tezenis,Body e corsetteria,25.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-046,Body Push-Up Scollato Essential Details,Tezenis,Body e corsetteria,25.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-047,Body Manica Lunga Girocollo Termico Invisibile,Tezenis,Body e corsetteria,16.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-048,Body Triangolo Taglio Vivo Natural Lifting,Tezenis,Body e corsetteria,22.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-049,Body Manica Lunga Lana Merino Lamè e Viscosa,Tezenis,Body e corsetteria,19.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-050,Body a Balconcino Luxury Look in Pizzo,Tezenis,Body e corsetteria,25.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-051,Body Manica Lunga Pizzo Mystic Secret,Tezenis,Body e corsetteria,19.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-052,Body Tulle e Microfibra Shine Dream,Tezenis,Body e corsetteria,22.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-053,Body Manica Lunga in Tulle e Microfibra,Tezenis,Body e corsetteria,19.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-054,Body Pizzo Divine Couture,Tezenis,Body e corsetteria,22.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-055,Body Push-Up Imbottito Sparkling Vibe in Pizzo,Tezenis,Body e corsetteria,25.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-056,Body Camicia Manica Lunga Petite Bon Ton,Tezenis,Body e corsetteria,25.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-057,Body Manica Lunga Romantic Velvet,Tezenis,Body e corsetteria,19.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-058,Body Manica Lunga Lady Romance in Pizzo,Tezenis,Body e corsetteria,25.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-059,Body Manica Lunga Black Jaguar,Tezenis,Body e corsetteria,19.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-060,Body a Canotta con Coppe Termico Invisibile,Tezenis,Body e corsetteria,19.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-061,Body Girocollo Viscosa e Lana Merino,Tezenis,Body e corsetteria,14.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-062,Body Spalla Larga Vogatore in Pizzo,Tezenis,Body e corsetteria,14.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-063,Body Spalline Sottili Midnight Secret,Tezenis,Body e corsetteria,25.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-064,Body Manica Lunga Pizzo Floreale Senza Cuciture,Tezenis,Body e corsetteria,19.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-065,Body Pizzo Mistery Essence,Tezenis,Body e corsetteria,25.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/body/,0,True,False
+MKT-066,Sottoveste Pizzo e Strass Sparkling Vibe,Tezenis,Sottovesti e lingerie notte,22.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/lingerie/,0,True,False
+MKT-067,Sottoveste in Velluto e Pizzo,Tezenis,Sottovesti e lingerie notte,16.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/lingerie/,0,True,False
+MKT-068,Sottoveste Triangolo Luxury Look,Tezenis,Sottovesti e lingerie notte,22.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/lingerie/,0,True,False
+MKT-069,Sottoveste Mistery Essence,Tezenis,Sottovesti e lingerie notte,19.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/lingerie/,0,True,False
+MKT-070,Sottoveste in Pizzo Midnight Secret,Tezenis,Sottovesti e lingerie notte,19.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/lingerie/,0,True,False
+MKT-071,Sottoveste con Spalline Sottili in Cotone,Tezenis,Sottovesti e lingerie notte,10.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/lingerie/,0,True,False
+MKT-072,Reggiseno a Balconcino Ethereal Embrace,Intimissimi,Reggiseni e bustier,39.9,EUR,2026-11-08,https://www.intimissimi.com/donna/reggiseni/,0,True,False
+MKT-073,Bustier a Fascia Ethereal Embrace,Intimissimi,Reggiseni e bustier,45.9,EUR,2026-11-08,https://www.intimissimi.com/donna/reggiseni/,0,True,False
+MKT-074,Reggiseno a Balconcino Sofia Ethereal Embrace,Intimissimi,Reggiseni e bustier,39.9,EUR,2026-11-08,https://www.intimissimi.com/donna/reggiseni/,0,True,False
+MKT-075,Reggiseno Balconcino Carioca Tempting Treat,Intimissimi,Reggiseni e bustier,39.9,EUR,2026-11-08,https://www.intimissimi.com/donna/reggiseni/,0,True,False
+MKT-076,Reggiseno Super push-up Simona Eyes of Desire,Intimissimi,Reggiseni e bustier,39.9,EUR,2026-11-08,https://www.intimissimi.com/donna/reggiseni/,0,True,False
+MKT-077,Reggiseno Balconcino Denise Pretty Flowers,Intimissimi,Reggiseni e bustier,39.9,EUR,2026-11-08,https://www.intimissimi.com/donna/reggiseni/,0,True,False
+MKT-078,Reggiseno Balconcino Elena Catching Eyes,Intimissimi,Reggiseni e bustier,39.9,EUR,2026-11-08,https://www.intimissimi.com/donna/reggiseni/,0,True,False
+MKT-079,Reggiseno a Triangolo Tiziana in Seta e Pizzo,Intimissimi,Reggiseni e bustier,45.9,EUR,2026-11-08,https://www.intimissimi.com/donna/reggiseni/,0,True,False
+MKT-080,Reggiseno Balconette Denise in Pizzo,Intimissimi,Reggiseni e bustier,32.9,EUR,2026-11-08,https://www.intimissimi.com/donna/reggiseni/,0,True,False
+MKT-081,Reggiseno a Triangolo Emma in Seta,Intimissimi,Reggiseni e bustier,39.9,EUR,2026-11-08,https://www.intimissimi.com/donna/reggiseni/,0,True,False
+MKT-082,Reggiseno a Balconcino Sofia in Seta,Intimissimi,Reggiseni e bustier,45.9,EUR,2026-11-08,https://www.intimissimi.com/donna/reggiseni/,0,True,False
+MKT-083,Reggiseno Push-Up Bellissima in Seta,Intimissimi,Reggiseni e bustier,45.9,EUR,2026-11-08,https://www.intimissimi.com/donna/reggiseni/,0,True,False
+MKT-084,Body Manica Lunga in Pizzo Elastico,Intimissimi,Body e corsetteria,49.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-085,Body Manica Lunga in Pizzo Dark Romance,Intimissimi,Body e corsetteria,49.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-086,Body Manica Lunga in Pizzo Be the Magic,Intimissimi,Body e corsetteria,49.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-087,Body Giada Handcrafted Luxury,Intimissimi,Body e corsetteria,69.0,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-088,Body in Pizzo e Fresh Bamboo Pretty Flowers,Intimissimi,Body e corsetteria,39.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-089,Body Manica Lunga Effetto Velluto Everyday Luxury,Intimissimi,Body e corsetteria,49.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-090,Body Manica Lunga Crafted for Delight,Intimissimi,Body e corsetteria,49.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-091,Body Elena Crafted for Delight,Intimissimi,Body e corsetteria,59.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-092,Body Catching Eyes,Intimissimi,Body e corsetteria,39.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-093,Body a Collo Alto in Ultralight con Cashmere,Intimissimi,Body e corsetteria,32.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-094,Body a Manica Lunga in Ultralight con Cashmere,Intimissimi,Body e corsetteria,32.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-095,Body Giada in Microfibra Ultralight,Intimissimi,Body e corsetteria,49.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-096,Body a Canotta in Cotone Ultralight Cotton,Intimissimi,Body e corsetteria,29.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-097,Body Sexy Back in Microfibra Ultralight,Intimissimi,Body e corsetteria,59.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-098,Body in Tulle e Pizzo Pretty Flowers,Intimissimi,Body e corsetteria,39.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-099,Body Collo Alto in Tulle,Intimissimi,Body e corsetteria,39.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/body/,0,True,False
+MKT-100,Perizoma Fianchetto in Cotone Ultralight Cotton,Intimissimi,"Slip, tanga e brasiliane",8.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-101,Perizoma Fianchetto Catching Eyes,Intimissimi,"Slip, tanga e brasiliane",12.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-102,Perizoma Stile Anni '80 Be the Magic,Intimissimi,"Slip, tanga e brasiliane",12.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-103,Brasiliana Be the Magic,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-104,Culotte Brasiliana Be the Magic,Intimissimi,"Slip, tanga e brasiliane",19.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-105,Brasiliana Stile Anni '80 in Seta,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-106,Slip in Seta e Pizzo,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-107,Perizoma in Seta e Pizzo,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-108,Brasiliana Catching Eyes,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-109,Slip Fianchetto Catching Eyes,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-110,Brasiliana Crafted for Delight,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-111,Brasiliana Stile Anni 80 Everyday Luxury,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-112,Perizoma Fianchetto Everyday Luxury,Intimissimi,"Slip, tanga e brasiliane",12.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-113,Slip in Pizzo Floreale Pretty Flowers,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-114,Culotte Brasilianata Pretty Flowers,Intimissimi,"Slip, tanga e brasiliane",19.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-115,Perizoma con Fianchetto in Pizzo Pretty Flowers,Intimissimi,"Slip, tanga e brasiliane",12.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-116,Brasiliana Eyes of Desire,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-117,Perizoma Fianchetto Eyes of Desire,Intimissimi,"Slip, tanga e brasiliane",12.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-118,Perizoma Fianchetto Sottile in Pizzo,Intimissimi,"Slip, tanga e brasiliane",10.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-119,Brasiliana Stile Anni 80 Tempting Treat,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-120,Brasiliana From the Boudoir,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-121,Brasiliana in Tulle Brighten Your Day,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-122,Brasiliana Stile Anni 80 in Pizzo e Microfibra,Intimissimi,"Slip, tanga e brasiliane",10.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-123,Brasiliana Ethereal Embrace,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-124,Brasiliana in Cotone senza Cuciture,Intimissimi,"Slip, tanga e brasiliane",8.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-125,Brasiliana Lace Perfection,Intimissimi,"Slip, tanga e brasiliane",15.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-126,Brasiliana Senza Cuciture in Microfibra Ultralight,Intimissimi,"Slip, tanga e brasiliane",8.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/slip/,0,True,False
+MKT-127,Abito Manica Lunga in Pizzo Elastico,Intimissimi,Babydoll e sottovesti,69.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/lingerie/sottovesti_babydoll/,0,True,False
+MKT-128,Sottoveste Asimmetrica in Seta e Pizzo Brighten Your Day,Intimissimi,Babydoll e sottovesti,69.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/lingerie/sottovesti_babydoll/,0,True,False
+MKT-129,Babydoll Tempting Treat,Intimissimi,Babydoll e sottovesti,45.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/lingerie/sottovesti_babydoll/,0,True,False
+MKT-130,Babydoll Ethereal Embrace,Intimissimi,Babydoll e sottovesti,45.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/lingerie/sottovesti_babydoll/,0,True,False
+MKT-131,Sottoveste Lunga in Seta From the Boudoir,Intimissimi,Babydoll e sottovesti,149.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/lingerie/sottovesti_babydoll/,0,True,False
+MKT-132,Sottoveste Asimmetrica in Raso di Viscosa con Pizzo,Intimissimi,Babydoll e sottovesti,59.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/lingerie/sottovesti_babydoll/,0,True,False
+MKT-133,Baby-doll Pretty Flowers,Intimissimi,Babydoll e sottovesti,45.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/lingerie/sottovesti_babydoll/,0,True,False
+MKT-134,Babydoll in Tulle Our Kind of Magic,Intimissimi,Babydoll e sottovesti,69.0,EUR,2026-11-08,https://www.intimissimi.com/it/donna/lingerie/sottovesti_babydoll/,0,True,False
+MKT-135,Babydoll Dark Romance,Intimissimi,Babydoll e sottovesti,49.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/lingerie/sottovesti_babydoll/,0,True,False
+MKT-136,Sottoveste Carioca Eyes of Desire,Intimissimi,Babydoll e sottovesti,69.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/lingerie/sottovesti_babydoll/,0,True,False
+MKT-137,Sottoveste Lunga in Raso di Viscosa e Pizzo Catching Eyes,Intimissimi,Babydoll e sottovesti,69.9,EUR,2026-11-08,https://www.intimissimi.com/it/donna/lingerie/sottovesti_babydoll/,0,True,False
+MKT-138,Reggicalze Pizzo Mystic Secret Rosso,Tezenis,Reggicalze e accessori,12.99,EUR,2026-11-08,https://www.tezenis.com/it/donna/intimo/slip/,0,True,False
+MKT-139,Autoreggenti Velate 20 Denari,Calzedonia,Calze e autoreggenti,10.95,EUR,2026-11-08,https://www.calzedonia.com/it/donna/collant_e_autoreggenti/autoreggenti/,0,True,False
+MKT-140,Autoreggenti 50 Denari Soft Touch,Calzedonia,Calze e autoreggenti,10.95,EUR,2026-11-08,https://www.calzedonia.com/it/donna/collant_e_autoreggenti/autoreggenti/,0,True,False
+MKT-141,Autoreggenti Rete Piccola,Calzedonia,Calze e autoreggenti,10.95,EUR,2026-11-08,https://www.calzedonia.com/it/donna/collant_e_autoreggenti/autoreggenti/,0,True,False
+MKT-142,Autoreggenti Velate Balza in Pizzo,Calzedonia,Calze e autoreggenti,15.95,EUR,2026-11-08,https://www.calzedonia.com/it/donna/collant_e_autoreggenti/autoreggenti/,0,True,False
+MKT-143,Calze Per Reggicalze Velate 20 Denari,Calzedonia,Calze e autoreggenti,10.95,EUR,2026-11-08,https://www.calzedonia.com/it/donna/collant_e_autoreggenti/autoreggenti/,0,True,False
+MKT-144,Autoreggenti 20 Denari Opache,Calzedonia,Calze e autoreggenti,15.95,EUR,2026-11-08,https://www.calzedonia.com/it/donna/collant_e_autoreggenti/autoreggenti/,0,True,False
+MKT-145,Autoreggenti Velate 15 Denari Matt,Calzedonia,Calze e autoreggenti,15.95,EUR,2026-11-08,https://www.calzedonia.com/it/donna/collant_e_autoreggenti/autoreggenti/,0,True,False
+MKT-146,Autoreggenti Velate Rose e Pois,Calzedonia,Calze e autoreggenti,15.95,EUR,2026-11-08,https://www.calzedonia.com/it/donna/collant_e_autoreggenti/autoreggenti/,0,True,False

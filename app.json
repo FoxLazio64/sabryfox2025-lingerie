@@ -31,6 +31,12 @@
         }
       ],
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d33598f0-2895-49ed-9be3-18cee391c3a2"
+      }
+    },
+    "owner": "fox64"
   }
 }

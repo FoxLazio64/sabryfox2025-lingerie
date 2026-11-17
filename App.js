@@ -20,6 +20,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { API_BASE_URL, BRAND, PRIVACY_POLICY_URL } from './src/config';
 import { CATEGORIES, LOCAL_CATALOG } from './src/catalog';
+import AuthGate from './src/gestionale/AuthGate';
+import ManagementDashboard from './src/gestionale/ManagementDashboard';
 
 const C = {
   forest: '#06180F',
@@ -52,6 +54,25 @@ const ROLE_LABELS = {
   dipendente: 'Dipendente',
   cliente: 'Cliente',
 };
+
+function mapLocalSession(session) {
+  if (!session) return null;
+
+  const roleMap = {
+    'Amministratore unico': 'amministratore-unico',
+    'Amministrazione e Finanze': 'amministrazione-finanze',
+    'Dipendenti': 'dipendente',
+    'Cliente': 'cliente',
+  };
+
+  return {
+    id: String(session.id || 'local'),
+    name: session.name || session.username || 'Cliente',
+    username: session.username || '',
+    email: session.username || '',
+    role: roleMap[session.role] || 'cliente',
+  };
+}
 
 function money(value) {
   if (value === null || value === undefined || value === '') return 'Prezzo su richiesta';
@@ -133,7 +154,7 @@ function ProductCard({ product, favorite, onOpen, onFavorite }) {
   );
 }
 
-export default function App() {
+function BoutiqueApp({ authSession }) {
   const [ready, setReady] = useState(false);
   const [online, setOnline] = useState(false);
   const [tab, setTab] = useState('home');
@@ -143,7 +164,7 @@ export default function App() {
   const [orders, setOrders] = useState([]);
   const [profile, setProfile] = useState({ name: '', email: '', phone: '', address: '', city: '', postalCode: '' });
   const [token, setToken] = useState('');
-  const [sessionUser, setSessionUser] = useState(null);
+  const [sessionUser, setSessionUser] = useState(() => mapLocalSession(authSession));
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedSize, setSelectedSize] = useState('');
   const [search, setSearch] = useState('');
@@ -193,8 +214,7 @@ export default function App() {
         setFavorites(read('favorites', []));
         setOrders(read('orders', []));
         setProfile(read('profile', { name: '', email: '', phone: '', address: '', city: '', postalCode: '' }));
-        setToken(saved[KEYS.token] || '');
-        setSessionUser(read('sessionUser', null));
+        // Credenziali e sessione sono gestite da AuthGate in locale.
       } catch (error) {
         console.warn('Lettura archivio locale non riuscita:', error?.message);
       } finally {
@@ -208,6 +228,11 @@ export default function App() {
     return () => { mounted = false; unsubscribe(); };
   }, []);
 
+  // Aggiorna la boutique ogni volta che AuthGate cambia sessione.
+  useEffect(() => {
+    setSessionUser(mapLocalSession(authSession));
+  }, [authSession]);
+
   useEffect(() => {
     if (!ready) return;
     AsyncStorage.multiSet([
@@ -216,8 +241,7 @@ export default function App() {
       [KEYS.favorites, JSON.stringify(favorites)],
       [KEYS.orders, JSON.stringify(orders)],
       [KEYS.profile, JSON.stringify(profile)],
-      [KEYS.token, token],
-      [KEYS.sessionUser, JSON.stringify(sessionUser)],
+      // Token e sessione non vengono archiviati dalla boutique.
     ]).catch(error => console.warn('Salvataggio locale non riuscito:', error?.message));
   }, [ready, catalog, cart, favorites, orders, profile, token, sessionUser]);
 
@@ -764,20 +788,14 @@ export default function App() {
           <Text style={styles.profileName}>{sessionUser.name || sessionUser.email}</Text>
           <Text style={styles.profileEmail}>{sessionUser.email}</Text>
           <Text style={styles.rolePill}>{ROLE_LABELS[sessionUser.role] || 'Cliente'}</Text>
-          <GoldButton title="ESCI DALL’ACCOUNT" onPress={logout} secondary compact />
           {staff && renderStaffPanel()}
         </View>
       ) : (
         <View style={styles.authCard}>
-          <View style={styles.authTabs}>
-            <Pressable onPress={() => setAuthMode('login')} style={[styles.authTab, authMode === 'login' && styles.authTabActive]}><Text style={[styles.authTabText, authMode === 'login' && styles.authTabTextActive]}>Accedi</Text></Pressable>
-            <Pressable onPress={() => setAuthMode('register')} style={[styles.authTab, authMode === 'register' && styles.authTabActive]}><Text style={[styles.authTabText, authMode === 'register' && styles.authTabTextActive]}>Crea account</Text></Pressable>
-          </View>
-          {authMode === 'register' && <Field label="Nome e cognome" value={authForm.name} onChangeText={v => setAuthForm(s => ({ ...s, name: v }))} />}
-          <Field label="E-mail" value={authForm.email} onChangeText={v => setAuthForm(s => ({ ...s, email: v }))} keyboardType="email-address" autoCapitalize="none" />
-          <Field label="Password" value={authForm.password} onChangeText={v => setAuthForm(s => ({ ...s, password: v }))} secureTextEntry autoCapitalize="none" />
-          <GoldButton title={authMode === 'register' ? 'REGISTRA ACCOUNT' : 'ACCEDI'} onPress={authenticate} disabled={busy || !apiConfigured || !online} />
-          {!apiConfigured && <Text style={styles.smallNote}>L’account richiede il collegamento al negozio online. Puoi comunque consultare il catalogo, salvare preferiti e carrello e preparare richieste offline.</Text>}
+          <Text style={styles.formCardTitle}>AREA CLIENTE LOCALE</Text>
+          <Text style={styles.smallNote}>
+            Accesso e registrazione sono gestiti dal profilo locale del dispositivo. Non serve una connessione Internet.
+          </Text>
         </View>
       )}
       {!staff && renderLocalOrders()}
@@ -1035,3 +1053,16 @@ const styles = StyleSheet.create({
   consentText: { color: C.muted, fontSize: 10, lineHeight: 15, flex: 1 },
   checkoutTotal: { backgroundColor: '#E8DECC', borderRadius: 11, padding: 14, flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
 });
+
+
+export default function App() {
+  return (
+    <AuthGate>
+      {(session) => (
+        session && session.role !== 'Cliente'
+          ? <ManagementDashboard session={session} />
+          : <BoutiqueApp authSession={session} />
+      )}
+    </AuthGate>
+  );
+}
