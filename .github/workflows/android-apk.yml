@@ -1,0 +1,65 @@
+name: Build SabryFox2025 Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sabryfox2025-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compila SabryFox2025 Lingerie
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Scarica progetto
+        uses: actions/checkout@v7
+
+      - name: Configura Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.13.0'
+          cache: npm
+
+      - name: Configura Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Configura Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Installa componenti Android
+        run: |
+          sdkmanager "platforms;android-37.0" "build-tools;37.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
+
+      - name: Compatibilita Android 37
+        run: |
+          if [ -d "$ANDROID_HOME/platforms/android-37.0" ] && [ ! -e "$ANDROID_HOME/platforms/android-37" ]; then
+            ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
+          fi
+
+      - name: Installa dipendenze
+        run: npm ci
+
+      - name: Genera progetto Android
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Compila APK Release
+        run: cd android && ./gradlew --no-daemon --stacktrace :app:assembleRelease
+
+      - name: Salva APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: SabryFox2025-Lingerie-APK-${{ github.run_number }}
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 14

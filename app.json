@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "SabryFox2025 Lingerie",
+    "slug": "sabryfox2025-lingerie",
+    "version": "1.0.3",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "it.sabryfox2025.lingerie"
+    },
+    "android": {
+      "package": "it.sabryfox2025.lingerie",
+      "versionCode": 4,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#160B12"
+      }
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "imageWidth": 200,
+          "backgroundColor": "#160B12"
+        }
+      ],
+      "expo-secure-store"
+    ]
+  }
+}
