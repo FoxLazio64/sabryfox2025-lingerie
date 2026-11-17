@@ -562,7 +562,7 @@ function BoutiqueApp({ authSession }) {
   const renderHeader = () => (
     <View style={styles.header}>
       <View style={styles.headerBrand}>
-        <Image source={require('./assets/logo.png')} style={styles.headerLogo} resizeMode="cover" />
+        <Image source={require('./assets/logo.jpg')} style={styles.headerLogo} resizeMode="cover" />
         <View>
           <Text style={styles.headerTitle}>{BRAND.name}</Text>
           <Text style={styles.headerSubtitle}>{BRAND.subtitle}</Text>
@@ -822,7 +822,7 @@ function BoutiqueApp({ authSession }) {
   };
 
   if (!ready) {
-    return <SafeAreaView style={styles.loadingScreen}><StatusBar barStyle="light-content" backgroundColor={C.forest} /><Image source={require('./assets/logo.png')} style={styles.loadingLogo} /><ActivityIndicator color={C.gold} size="large" /><Text style={styles.loadingText}>SabryFox2025 Lingerie</Text></SafeAreaView>;
+    return <SafeAreaView style={styles.loadingScreen}><StatusBar barStyle="light-content" backgroundColor={C.forest} /><Image source={require('./assets/logo.jpg')} style={styles.loadingLogo} /><ActivityIndicator color={C.gold} size="large" /><Text style={styles.loadingText}>SabryFox2025 Lingerie</Text></SafeAreaView>;
   }
 
   return (

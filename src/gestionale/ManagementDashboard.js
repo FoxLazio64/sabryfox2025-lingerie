@@ -543,7 +543,7 @@ export default function ManagementDashboard({ session }) {
     <View style={s.root}>
       <View style={s.header}>
         <Image
-          source={require('../../assets/logo.png')}
+          source={require('../../assets/logo.jpg')}
           style={s.logo}
           resizeMode="contain"
         />

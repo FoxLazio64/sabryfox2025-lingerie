@@ -349,7 +349,7 @@ export default function AuthGate({ children }) {
   if (storageError) {
     return (
       <View style={s.page}>
-        <Image source={require('../../assets/logo.png')} style={s.logo} resizeMode="contain" />
+        <Image source={require('../../assets/logo.jpg')} style={s.logo} resizeMode="contain" />
         <Text style={s.heading}>ARCHIVIO PROTETTO</Text>
         <Text style={s.description}>Non è stato possibile leggere le credenziali. Non cancellare i dati dell'applicazione.</Text>
         <Button title="RIPROVA" onPress={() => setStorageError(false)} />
@@ -379,7 +379,7 @@ export default function AuthGate({ children }) {
       return (
         <View style={s.manager}>
           <ScrollView contentContainerStyle={s.container}>
-            <Image source={require('../../assets/logo.png')} style={s.logo} resizeMode="contain" />
+            <Image source={require('../../assets/logo.jpg')} style={s.logo} resizeMode="contain" />
             <Text style={s.heading}>GESTIONE UTENTI</Text>
             <Text style={s.description}>Account registrati su questo dispositivo.</Text>
 
@@ -443,7 +443,7 @@ export default function AuthGate({ children }) {
     <View style={s.page}>
       <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
         <Image
-          source={require('../../assets/logo.png')}
+          source={require('../../assets/logo.jpg')}
           style={s.logo}
           resizeMode="contain"
         />

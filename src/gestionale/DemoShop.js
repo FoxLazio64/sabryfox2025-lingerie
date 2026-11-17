@@ -114,7 +114,7 @@ export default function DemoShop({ session }) {
   const Header = () => (
     <View style={s.header}>
       <View style={s.brandRow}>
-        <Image source={require('../../assets/logo.png')} style={s.logo} resizeMode="contain" />
+        <Image source={require('../../assets/logo.jpg')} style={s.logo} resizeMode="contain" />
         <View style={{ flex: 1 }}>
           <Text style={s.brand}>SabryFox2025</Text>
           <Text style={s.brandSub}>LINGERIE BOUTIQUE</Text>
