@@ -2,7 +2,7 @@
   "expo": {
     "name": "SabryFox2025 Lingerie",
     "slug": "sabryfox2025-lingerie",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "icon": "./assets/icon.png",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "it.sabryfox2025.lingerie",
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#160B12"
@@ -30,7 +30,8 @@
           "backgroundColor": "#160B12"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-sharing"
     ],
     "extra": {
       "eas": {

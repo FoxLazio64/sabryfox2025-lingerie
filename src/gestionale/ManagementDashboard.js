@@ -4,6 +4,7 @@ import {
   StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import BackupManager from './BackupManager';
 import MarketCatalog from './MarketCatalog';
 import DemoOrders from './DemoOrders';
 
@@ -183,6 +184,9 @@ export default function ManagementDashboard({ session }) {
   );
 
   const addProduct = () => {
+    if (!(owner || office)) {
+      return Alert.alert('Accesso negato', 'Non hai i permessi per inserire prodotti.');
+    }
     const q = Number(quantity);
     const buy = purchasePrice.trim() ? Number(purchasePrice.replace(',', '.')) : 0;
     const sell = salePrice.trim() ? Number(salePrice.replace(',', '.')) : 0;
@@ -245,6 +249,9 @@ export default function ManagementDashboard({ session }) {
   };
 
   const recordMovement = () => {
+    if (!(owner || office || employee)) {
+      return Alert.alert('Accesso negato', 'Non hai i permessi per registrare movimenti.');
+    }
     const q = Number(movementQuantity);
     const product = products.find(
       (p) => p.code === movementCode.trim().toUpperCase()
@@ -289,6 +296,9 @@ export default function ManagementDashboard({ session }) {
   };
 
   const addFinance = () => {
+    if (!canManageFinance) {
+      return Alert.alert('Accesso negato', 'Non hai i permessi per registrare operazioni finanziarie.');
+    }
     const amount = Number(financeAmount.replace(',', '.'));
 
     if (!Number.isFinite(amount) || amount <= 0 || !financeNote.trim()) {
@@ -404,9 +414,15 @@ export default function ManagementDashboard({ session }) {
           <Text style={s.copy}>
             Taglia: {item.size || '—'} · Colore: {item.color || '—'}
           </Text>
-          <Text style={s.copy}>
-            Acquisto: {euro(item.purchasePrice)} · Vendita: {euro(item.salePrice)}
-          </Text>
+          {owner || office ? (
+            <Text style={s.copy}>
+              Acquisto: {euro(item.purchasePrice)} · Vendita: {euro(item.salePrice)}
+            </Text>
+          ) : (
+            <Text style={s.copy}>
+              Prezzo di vendita: {euro(item.salePrice)}
+            </Text>
+          )}
           {owner && (
             <Button title="ELIMINA ARTICOLO" danger secondary onPress={() => {
               Alert.alert('Eliminare articolo?', item.name, [
@@ -516,6 +532,7 @@ export default function ManagementDashboard({ session }) {
         <Text style={s.copy}>Versione gestionale in sviluppo.</Text>
         <Text style={s.goldText}>© 2026 SabryFox2025 Lingerie. Tutti i diritti riservati.</Text>
       </Card>
+      {owner ? <BackupManager /> : null}
     </>
   );
 

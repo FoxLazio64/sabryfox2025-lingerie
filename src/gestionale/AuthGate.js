@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
+import { ADMIN_ACTIVATION_HASH } from './activation-config';
 
 function makeSalt() {
   return Array.from(Crypto.getRandomBytes(16))
@@ -19,7 +20,14 @@ async function hashPassword(password, salt) {
 }
 
 const KEY = 'sabryfox_accounts_v1';
-const ROLES = ['Amministrazione e Finanze', 'Dipendenti'];
+const ROLES = ['Amministrazione e Finanze', 'Dipendenti', 'Clienti VIP'];
+
+function constantTimeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let difference = 0;
+  for (let i = 0; i < a.length; i++) difference |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return difference === 0;
+}
 
 function Field({ label, value, onChangeText, placeholder, secureTextEntry }) {
   const [visible, setVisible] = React.useState(false);
@@ -83,6 +91,7 @@ export default function AuthGate({ children }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [activationCode, setActivationCode] = useState('');
 
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -110,7 +119,9 @@ export default function AuthGate({ children }) {
               ? 'Amministrazione e Finanze'
               : u.role === 'Dipendente'
                 ? 'Dipendenti'
-                : u.role,
+                : ['Cliente', 'Cliente VIP', 'Clienti'].includes(u.role)
+                  ? 'Clienti VIP'
+                  : u.role,
         }));
 
         const ownerCount = normalized.filter(
@@ -148,6 +159,29 @@ export default function AuthGate({ children }) {
       return Alert.alert('Amministratore già presente', 'Su questo dispositivo esiste già un amministratore.');
     }
 
+    const suppliedCode = activationCode.replace(/\s+/g, '').toUpperCase();
+
+    if (suppliedCode.length !== 64) {
+      return Alert.alert('Codice necessario', 'Inserisci il codice riservato di attivazione.');
+    }
+
+    let suppliedHash;
+    try {
+      suppliedHash = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        suppliedCode
+      );
+    } catch {
+      return Alert.alert('Errore', 'Impossibile verificare il codice di attivazione.');
+    }
+
+    if (
+      !/^[a-f0-9]{64}$/i.test(ADMIN_ACTIVATION_HASH) ||
+      !constantTimeEqual(suppliedHash.toLowerCase(), ADMIN_ACTIVATION_HASH.toLowerCase())
+    ) {
+      return Alert.alert('Codice non valido', 'Il codice di attivazione non è corretto.');
+    }
+
     if (!name.trim() || username.trim().length < 3) {
       return Alert.alert('Dati mancanti', 'Inserisci nome e utente di almeno 3 caratteri.');
     }
@@ -180,6 +214,7 @@ export default function AuthGate({ children }) {
 
     try {
       await saveUsers([...users, admin]);
+      setActivationCode('');
       setSession({
         id: admin.id,
         name: admin.name,
@@ -240,7 +275,7 @@ export default function AuthGate({ children }) {
     if (session?.role !== 'Amministratore unico') return;
 
     if (!ROLES.includes(newRole)) {
-      return Alert.alert('Ruolo non consentito', 'Puoi creare soltanto account Amministrazione e Finanze o Dipendenti.');
+      return Alert.alert('Ruolo non consentito', 'Puoi creare account Amministrazione e Finanze, Dipendenti o Clienti VIP.');
     }
 
     if (!newName.trim() || newUsername.trim().length < 3) {
@@ -281,61 +316,15 @@ export default function AuthGate({ children }) {
     }
   };
 
-  const createCustomer = async () => {
-    if (!name.trim() || username.trim().length < 3) {
-      return Alert.alert('Dati mancanti', 'Inserisci nome e username di almeno 3 caratteri.');
-    }
-
-    if (password.length < 8) {
-      return Alert.alert('Password non valida', 'Scegli almeno 8 caratteri.');
-    }
-
-    if (password !== confirm) {
-      return Alert.alert('Attenzione', 'Le password non coincidono.');
-    }
-
-    const normalized = username.trim().toLowerCase();
-
-    if (users.some((u) => u.username === normalized)) {
-      return Alert.alert('Utente già esistente', 'Scegli un altro username.');
-    }
-
-    try {
-      const salt = makeSalt();
-      const passwordHash = await hashPassword(password, salt);
-
-      const customer = {
-        id: String(Date.now()),
-        name: name.trim(),
-        username: normalized,
-        salt,
-        passwordHash,
-        role: 'Cliente',
-        isOwner: false,
-      };
-
-      await saveUsers([...users, customer]);
-      setSession({
-        id: customer.id,
-        name: customer.name,
-        username: customer.username,
-        role: customer.role,
-      });
-      setName('');
-      setUsername('');
-      setPassword('');
-      setConfirm('');
-      setMode('login');
-    } catch {
-      Alert.alert('Errore', 'Non è stato possibile creare il profilo cliente.');
-    }
-  };
-
   const logout = () => {
     setSession(null);
     setShowUsers(false);
-    setMode('login');
+    const ownerExists = users.some(
+      (u) => u.role === 'Amministratore unico' || u.isOwner
+    );
+    setMode(ownerExists ? 'login' : 'setup');
     setLoginPassword('');
+    setActivationCode('');
   };
 
   if (loading) {
@@ -357,13 +346,13 @@ export default function AuthGate({ children }) {
     );
   }
 
-  if (session?.role === 'Cliente') {
+  if (session?.role === 'Clienti VIP' || session?.role === 'Visitatori') {
     return (
       <View style={{ flex: 1 }}>
         <View style={s.sessionBar}>
           <View style={{ flex: 1 }}>
             <Text style={s.sessionName}>{session.name}</Text>
-            <Text style={s.sessionRole}>CLIENTE</Text>
+            <Text style={s.sessionRole}>{session.role === 'Visitatori' ? 'VISITATORE' : 'CLIENTE VIP'}</Text>
           </View>
           <Pressable onPress={logout}>
             <Text style={s.sessionAction}>ESCI</Text>
@@ -455,7 +444,8 @@ export default function AuthGate({ children }) {
         {mode === 'setup' ? (
           <>
             <Text style={s.heading}>PRIMA CONFIGURAZIONE</Text>
-            <Text style={s.description}>Crea l'unico account amministratore di questo dispositivo.</Text>
+            <Text style={s.description}>Inserisci il codice riservato e crea l'unico account amministratore di questo dispositivo.</Text>
+            <Field label="CODICE DI ATTIVAZIONE RISERVATO" value={activationCode} onChangeText={setActivationCode} placeholder="Codice riservato" secureTextEntry />
 
             <Field label="NOME E COGNOME" value={name} onChangeText={setName} placeholder="Il tuo nome" />
             <Field label="NOME UTENTE" value={username} onChangeText={setUsername} placeholder="Scegli un username" />
@@ -463,19 +453,6 @@ export default function AuthGate({ children }) {
             <Field label="CONFERMA PASSWORD" value={confirm} onChangeText={setConfirm} placeholder="Ripeti la password" secureTextEntry />
 
             <Button title="CREA AMMINISTRATORE UNICO" onPress={createAdmin} />
-          </>
-        ) : mode === 'registerCustomer' ? (
-          <>
-            <Text style={s.heading}>REGISTRAZIONE CLIENTE</Text>
-            <Text style={s.description}>Crea il tuo account personale SabryFox2025.</Text>
-
-            <Field label="NOME E COGNOME" value={name} onChangeText={setName} placeholder="Il tuo nome" />
-            <Field label="NOME UTENTE" value={username} onChangeText={setUsername} placeholder="Scegli uno username" />
-            <Field label="PASSWORD" value={password} onChangeText={setPassword} placeholder="Almeno 8 caratteri" secureTextEntry />
-            <Field label="CONFERMA PASSWORD" value={confirm} onChangeText={setConfirm} placeholder="Ripeti la password" secureTextEntry />
-
-            <Button title="CREA ACCOUNT CLIENTE" onPress={createCustomer} />
-            <Button title="TORNA AL LOGIN" secondary onPress={() => setMode('login')} />
           </>
         ) : (
           <>
@@ -486,15 +463,14 @@ export default function AuthGate({ children }) {
             <Field label="PASSWORD" value={loginPassword} onChangeText={setLoginPassword} placeholder="La tua password" secureTextEntry />
 
             <Button title="ACCEDI" onPress={login} />
-            <Button title="REGISTRATI COME CLIENTE" secondary onPress={() => setMode('registerCustomer')} />
           </>
         )}
 
         <View style={{ height: 12 }} />
         <Button
-          title="ESPLORA LA BOUTIQUE COME OSPITE"
+          title="ESPLORA LA BOUTIQUE COME VISITATORE"
           secondary
-          onPress={() => setSession({ id: 'guest', name: 'Visitatore', role: 'Cliente' })}
+          onPress={() => setSession({ id: 'guest', name: 'Visitatore', role: 'Visitatori' })}
         />
 
         <Text style={s.footer}>IL MONDO SABRYFOX2025 LINGERIE</Text>

@@ -51,8 +51,9 @@ const KEYS = {
 const ROLE_LABELS = {
   'amministratore-unico': 'Amministratore unico',
   'amministrazione-finanze': 'Amministrazione e Finanze',
-  dipendente: 'Dipendente',
-  cliente: 'Cliente',
+  dipendente: 'Dipendenti',
+  'cliente-vip': 'Clienti VIP',
+  visitatore: 'Visitatore',
 };
 
 function mapLocalSession(session) {
@@ -62,15 +63,17 @@ function mapLocalSession(session) {
     'Amministratore unico': 'amministratore-unico',
     'Amministrazione e Finanze': 'amministrazione-finanze',
     'Dipendenti': 'dipendente',
-    'Cliente': 'cliente',
+    'Clienti VIP': 'cliente-vip',
+    'Cliente': 'cliente-vip',
+    'Visitatori': 'visitatore',
   };
 
   return {
     id: String(session.id || 'local'),
-    name: session.name || session.username || 'Cliente',
+    name: session.name || session.username || 'Visitatore',
     username: session.username || '',
-    email: session.username || '',
-    role: roleMap[session.role] || 'cliente',
+    email: session.email || (session.username?.includes('@') ? session.username : ''),
+    role: roleMap[session.role] || 'visitatore',
   };
 }
 
@@ -131,7 +134,7 @@ function ProductArt({ product, large = false }) {
   );
 }
 
-function ProductCard({ product, favorite, onOpen, onFavorite }) {
+function ProductCard({ product, favorite, onOpen, onFavorite, canFavorite = true }) {
   return (
     <View style={styles.productCard}>
       <Pressable onPress={onOpen}>
@@ -147,9 +150,11 @@ function ProductCard({ product, favorite, onOpen, onFavorite }) {
           </Text>
         </View>
       </Pressable>
-      <Pressable onPress={onFavorite} style={styles.favoriteButton} accessibilityLabel="Aggiungi ai preferiti">
-        <Text style={[styles.favoriteIcon, favorite && styles.favoriteActive]}>{favorite ? '♥' : '♡'}</Text>
-      </Pressable>
+      {canFavorite ? (
+        <Pressable onPress={onFavorite} style={styles.favoriteButton} accessibilityLabel="Aggiungi ai preferiti">
+          <Text style={[styles.favoriteIcon, favorite && styles.favoriteActive]}>{favorite ? '♥' : '♡'}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -185,8 +190,19 @@ function BoutiqueApp({ authSession }) {
   const apiConfigured = Boolean(API_BASE_URL && API_BASE_URL.startsWith('https://'));
   const apiRoot = API_BASE_URL.replace(/\/+$/, '');
   const cartCount = cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-  const staff = Boolean(sessionUser && sessionUser.role && sessionUser.role !== 'cliente');
+  const staff = Boolean(sessionUser && [
+    'amministratore-unico',
+    'amministrazione-finanze',
+    'dipendente',
+  ].includes(sessionUser.role));
   const owner = Boolean(sessionUser && sessionUser.role === 'amministratore-unico');
+  const isVIP = sessionUser?.role === 'cliente-vip';
+  const isVisitor = sessionUser?.role === 'visitatore';
+
+  const vipCartKey = isVIP ? `${KEYS.cart}:vip:${sessionUser.id}` : null;
+  const vipFavoritesKey = isVIP ? `${KEYS.favorites}:vip:${sessionUser.id}` : null;
+  const vipProfileKey = isVIP ? `${KEYS.profile}:vip:${sessionUser.id}` : null;
+  const vipOrdersKey = isVIP ? `${KEYS.orders}:vip:${sessionUser.id}` : null;
 
   const request = useCallback(async (path, options = {}) => {
     if (!apiConfigured) throw new Error('Il collegamento al negozio online non è ancora configurato.');
@@ -203,17 +219,34 @@ function BoutiqueApp({ authSession }) {
     let mounted = true;
     (async () => {
       try {
-        const pairs = await AsyncStorage.multiGet(Object.values(KEYS));
+        const scopedKeys = [vipCartKey, vipFavoritesKey, vipProfileKey, vipOrdersKey].filter(Boolean);
+        const pairs = await AsyncStorage.multiGet([...Object.values(KEYS), ...scopedKeys]);
         const saved = Object.fromEntries(pairs);
         if (!mounted) return;
         const read = (key, fallback) => {
-          try { return saved[KEYS[key]] ? JSON.parse(saved[KEYS[key]]) : fallback; } catch { return fallback; }
+          try { return saved[KEYS[key]] != null ? JSON.parse(saved[KEYS[key]]) : fallback; }
+          catch { return fallback; }
         };
+        const readScoped = (key, fallback) => {
+          try { return key && saved[key] != null ? JSON.parse(saved[key]) : fallback; }
+          catch { return fallback; }
+        };
+
         setCatalog(read('catalog', LOCAL_CATALOG));
-        setCart(read('cart', []));
-        setFavorites(read('favorites', []));
-        setOrders(read('orders', []));
-        setProfile(read('profile', { name: '', email: '', phone: '', address: '', city: '', postalCode: '' }));
+
+        if (isVIP) {
+          setCart(readScoped(vipCartKey, []));
+          setFavorites(readScoped(vipFavoritesKey, []));
+          setProfile(readScoped(vipProfileKey, {
+            name: '', email: '', phone: '', address: '', city: '', postalCode: ''
+          }));
+          setOrders(readScoped(vipOrdersKey, []));
+        } else {
+          setCart([]);
+          setFavorites([]);
+          setProfile({ name: '', email: '', phone: '', address: '', city: '', postalCode: '' });
+          setOrders([]);
+        }
         // Credenziali e sessione sono gestite da AuthGate in locale.
       } catch (error) {
         console.warn('Lettura archivio locale non riuscita:', error?.message);
@@ -226,7 +259,7 @@ function BoutiqueApp({ authSession }) {
     });
     NetInfo.fetch().then(state => setOnline(Boolean(state.isConnected && state.isInternetReachable !== false))).catch(() => {});
     return () => { mounted = false; unsubscribe(); };
-  }, []);
+  }, [isVIP, vipCartKey, vipFavoritesKey, vipProfileKey, vipOrdersKey]);
 
   // Aggiorna la boutique ogni volta che AuthGate cambia sessione.
   useEffect(() => {
@@ -235,15 +268,25 @@ function BoutiqueApp({ authSession }) {
 
   useEffect(() => {
     if (!ready) return;
-    AsyncStorage.multiSet([
-      [KEYS.catalog, JSON.stringify(catalog)],
-      [KEYS.cart, JSON.stringify(cart)],
-      [KEYS.favorites, JSON.stringify(favorites)],
-      [KEYS.orders, JSON.stringify(orders)],
-      [KEYS.profile, JSON.stringify(profile)],
-      // Token e sessione non vengono archiviati dalla boutique.
-    ]).catch(error => console.warn('Salvataggio locale non riuscito:', error?.message));
-  }, [ready, catalog, cart, favorites, orders, profile, token, sessionUser]);
+
+    const writes = [[KEYS.catalog, JSON.stringify(catalog)]];
+
+    if (isVIP && vipCartKey && vipFavoritesKey && vipProfileKey) {
+      writes.push(
+        [vipCartKey, JSON.stringify(cart)],
+        [vipFavoritesKey, JSON.stringify(favorites)],
+        [vipProfileKey, JSON.stringify(profile)],
+        [vipOrdersKey, JSON.stringify(orders)]
+      );
+    }
+
+    AsyncStorage.multiSet(writes).catch(error =>
+      console.warn('Salvataggio locale non riuscito:', error?.message)
+    );
+  }, [
+    ready, catalog, cart, favorites, orders, profile, token,
+    sessionUser, isVIP, vipCartKey, vipFavoritesKey, vipProfileKey, vipOrdersKey
+  ]);
 
   const refreshCatalog = useCallback(async () => {
     if (!online || !apiConfigured) return;
@@ -259,7 +302,7 @@ function BoutiqueApp({ authSession }) {
   }, [online, apiConfigured, request]);
 
   const syncPendingOrders = useCallback(async () => {
-    if (!ready || !online || !apiConfigured || syncing.current) return;
+    if (!isVIP || !ready || !online || !apiConfigured || syncing.current) return;
     const pending = orders.filter(order => !order.synced);
     if (!pending.length) return;
     syncing.current = true;
@@ -287,7 +330,7 @@ function BoutiqueApp({ authSession }) {
     } finally {
       syncing.current = false;
     }
-  }, [ready, online, apiConfigured, orders, request, token]);
+  }, [ready, online, apiConfigured, orders, request, token, isVIP]);
 
   useEffect(() => { refreshCatalog(); }, [refreshCatalog]);
   useEffect(() => { syncPendingOrders(); }, [syncPendingOrders]);
@@ -310,7 +353,12 @@ function BoutiqueApp({ authSession }) {
     return !p || p.price === null || p.price === undefined;
   });
 
-  const toggleFavorite = id => setFavorites(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
+  const toggleFavorite = id => {
+    if (!isVIP) return;
+    setFavorites(current => current.includes(id)
+      ? current.filter(item => item !== id)
+      : [...current, id]);
+  };
 
   const openProduct = product => {
     setSelectedProduct(product);
@@ -318,6 +366,9 @@ function BoutiqueApp({ authSession }) {
   };
 
   const addToCart = () => {
+    if (!isVIP) {
+      return Alert.alert('Area riservata', 'Il carrello è disponibile soltanto per i Clienti VIP.');
+    }
     if (!selectedProduct) return;
     setCart(current => {
       const existing = current.find(item => item.productId === selectedProduct.id && item.size === selectedSize);
@@ -329,10 +380,14 @@ function BoutiqueApp({ authSession }) {
   };
 
   const changeCartQuantity = (productId, size, delta) => {
+    if (!isVIP) return;
     setCart(current => current.map(item => item.productId === productId && item.size === size ? { ...item, quantity: Math.max(0, item.quantity + delta) } : item).filter(item => item.quantity > 0));
   };
 
   const openCheckout = () => {
+    if (!isVIP) {
+      return Alert.alert('Area riservata', 'Per inviare richieste è necessario un account Cliente VIP.');
+    }
     setCheckout({
       name: profile.name || sessionUser?.name || '',
       email: profile.email || sessionUser?.email || '',
@@ -347,6 +402,9 @@ function BoutiqueApp({ authSession }) {
   };
 
   const completeCheckout = async () => {
+    if (!isVIP) {
+      return Alert.alert('Accesso non consentito', 'Solo i Clienti VIP possono inviare richieste.');
+    }
     const required = ['name', 'email', 'phone', 'address', 'city', 'postalCode'];
     const missing = required.filter(key => !String(checkout[key] || '').trim());
     if (missing.length) {
@@ -370,6 +428,8 @@ function BoutiqueApp({ authSession }) {
     const localOrder = {
       id: `SF-${Date.now()}`,
       createdAt: new Date().toISOString(),
+      ownerUserId: sessionUser?.id || null,
+      ownerUsername: sessionUser?.username || null,
       customer,
       items: cart.map(item => {
         const p = catalog.find(product => product.id === item.productId);
@@ -571,10 +631,12 @@ function BoutiqueApp({ authSession }) {
       <View style={styles.headerRight}>
         <View style={[styles.connectionDot, online && styles.connectionDotOn]} />
         <Text style={styles.connectionText}>{online ? 'ONLINE' : 'OFFLINE'}</Text>
-        <Pressable onPress={() => setTab('cart')} style={styles.headerCart}>
-          <Text style={styles.headerCartIcon}>🛍</Text>
-          {cartCount > 0 && <View style={styles.cartBadge}><Text style={styles.cartBadgeText}>{cartCount}</Text></View>}
-        </Pressable>
+        {isVIP ? (
+          <Pressable onPress={() => setTab('cart')} style={styles.headerCart}>
+            <Text style={styles.headerCartIcon}>🛍</Text>
+            {cartCount > 0 && <View style={styles.cartBadge}><Text style={styles.cartBadgeText}>{cartCount}</Text></View>}
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -611,6 +673,7 @@ function BoutiqueApp({ authSession }) {
               favorite={favorites.includes(product.id)}
               onOpen={() => openProduct(product)}
               onFavorite={() => toggleFavorite(product.id)}
+              canFavorite={isVIP}
             />
           </View>
         ))}
@@ -697,9 +760,25 @@ function BoutiqueApp({ authSession }) {
   const renderLocalOrders = () => {
     const pendingLocal = orders.filter(order => !order.synced);
     const remoteClientOrders = customerOrders;
-    const displayedOrders = sessionUser?.role === 'cliente'
-      ? [...remoteClientOrders, ...orders.filter(local => !remoteClientOrders.some(remote => remote.clientOrderId === local.id || remote.id === local.serverId))]
-      : orders;
+    const ownedLocalOrders = orders.filter(order => {
+      if (String(order.ownerUserId || '') === String(sessionUser?.id || '')) {
+        return Boolean(order.ownerUserId);
+      }
+      const orderEmail = String(order.customer?.email || '').trim().toLowerCase();
+      const accountEmail = String(sessionUser?.email || '').trim().toLowerCase();
+      return Boolean(!order.ownerUserId && orderEmail && accountEmail && orderEmail === accountEmail);
+    });
+
+    const displayedOrders = isVIP
+      ? [
+          ...remoteClientOrders,
+          ...ownedLocalOrders.filter(local =>
+            !remoteClientOrders.some(remote =>
+              remote.clientOrderId === local.id || remote.id === local.serverId
+            )
+          )
+        ]
+      : [];
     return (
     <View style={styles.ordersBlock}>
       <Text style={styles.sectionTitle}>I tuoi ordini e le richieste</Text>
@@ -774,7 +853,7 @@ function BoutiqueApp({ authSession }) {
           </View>
         </View>
       ))}
-      <Text style={styles.smallNote}>Ruoli previsti: Amministratore unico, Amministrazione e Finanze, Dipendenti e Clienti. La creazione di ulteriori amministratori non è disponibile.</Text>
+      <Text style={styles.smallNote}>Ruoli previsti: Amministratore unico, Amministrazione e Finanze, Dipendenti, Clienti VIP e Visitatori. L’Amministratore unico è il solo profilo con controllo completo.</Text>
     </View>
   );
 
@@ -803,6 +882,7 @@ function BoutiqueApp({ authSession }) {
   );
 
   const renderSyncNotice = () => {
+    if (isVisitor) return null;
     const pending = orders.filter(order => !order.synced).length;
     if (!pending && (!apiConfigured || !online)) return null;
     return (
@@ -814,6 +894,9 @@ function BoutiqueApp({ authSession }) {
   };
 
   const renderContent = () => {
+    if (isVisitor) {
+      return tab === 'catalog' ? renderCatalog() : renderHome();
+    }
     if (tab === 'catalog') return renderCatalog();
     if (tab === 'favorites') return renderFavorites();
     if (tab === 'cart') return renderCart();
@@ -832,9 +915,10 @@ function BoutiqueApp({ authSession }) {
       {renderSyncNotice()}
       <View style={styles.main}>{renderContent()}</View>
       <View style={styles.bottomNav}>
-        {[
-          ['home', '⌂', 'Home'], ['catalog', '▦', 'Shop'], ['favorites', '♡', 'Preferiti'], ['cart', '🛍', 'Carrello'], ['account', '◎', 'Profilo'],
-        ].map(([key, icon, label]) => (
+        {(isVisitor
+          ? [['home', '⌂', 'Home'], ['catalog', '▦', 'Shop']]
+          : [['home', '⌂', 'Home'], ['catalog', '▦', 'Shop'], ['favorites', '♡', 'Preferiti'], ['cart', '🛍', 'Carrello'], ['account', '◎', 'Profilo']]
+        ).map(([key, icon, label]) => (
           <Pressable key={key} onPress={() => setTab(key)} style={styles.navItem}>
             <Text style={[styles.navIcon, tab === key && styles.navIconActive]}>{icon}{key === 'cart' && cartCount > 0 ? ` ${cartCount}` : ''}</Text>
             <Text style={[styles.navLabel, tab === key && styles.navLabelActive]}>{label}</Text>
@@ -858,7 +942,11 @@ function BoutiqueApp({ authSession }) {
                 <Text style={styles.fieldLabel}>Seleziona taglia</Text>
                 <View style={styles.chipRowWrap}>{safeArray(selectedProduct.sizes, ['Taglia da concordare']).map(size => <Pressable key={size} onPress={() => setSelectedSize(size)} style={[styles.sizeChip, selectedSize === size && styles.sizeChipActive]}><Text style={[styles.sizeChipText, selectedSize === size && styles.sizeChipTextActive]}>{size}</Text></Pressable>)}</View>
                 <Text style={styles.smallNote}>Colore indicativo: {selectedProduct.color || 'da confermare'}. Prezzo e disponibilità sono soggetti a conferma del negozio.</Text>
-                <GoldButton title="AGGIUNGI AL CARRELLO" onPress={addToCart} />
+                {isVIP ? (
+                  <GoldButton title="AGGIUNGI AL CARRELLO" onPress={addToCart} />
+                ) : (
+                  <Text style={styles.smallNote}>Modalità visitatore: consultazione del catalogo.</Text>
+                )}
               </ScrollView>
             )}
           </View>
@@ -1059,9 +1147,15 @@ export default function App() {
   return (
     <AuthGate>
       {(session) => (
-        session && session.role !== 'Cliente'
+        session && [
+          'Amministratore unico',
+          'Amministrazione e Finanze',
+          'Dipendenti',
+        ].includes(session.role)
           ? <ManagementDashboard session={session} />
-          : <BoutiqueApp authSession={session} />
+          : session && ['Clienti VIP', 'Visitatori'].includes(session.role)
+            ? <BoutiqueApp authSession={session} />
+            : null
       )}
     </AuthGate>
   );
