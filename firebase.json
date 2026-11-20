@@ -1,0 +1,10 @@
+{
+  "auth": {
+    "providers": {
+      "emailPassword": true
+    }
+  },
+  "react-native": {
+    "database_persistence_enabled": true
+  }
+}

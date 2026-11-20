@@ -45,3 +45,5 @@ App.js.pre-local-auth-*
 
 /dist-validation-final/
 App.js.pre-*
+
+/google-services.json
