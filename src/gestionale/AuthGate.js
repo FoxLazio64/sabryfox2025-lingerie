@@ -3,7 +3,9 @@ import {
   Alert, Image, Pressable, ScrollView,
   StyleSheet, Text, TextInput, View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { ADMIN_ACTIVATION_HASH } from './activation-config';
 
@@ -20,7 +22,8 @@ async function hashPassword(password, salt) {
 }
 
 const KEY = 'sabryfox_accounts_v1';
-const ROLES = ['Amministrazione e Finanze', 'Dipendenti', 'Clienti VIP'];
+const INITIAL_CLEANUP_KEY = 'sabryfox_initial_clean_v1';
+const ASYNC_STORAGE_PREFIX = '@sabryfox/';
 
 function constantTimeEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
@@ -80,11 +83,11 @@ function Button({ title, onPress, secondary }) {
 }
 
 export default function AuthGate({ children }) {
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState('login');
   const [users, setUsers] = useState([]);
   const [session, setSession] = useState(null);
-  const [showUsers, setShowUsers] = useState(false);
   const [storageError, setStorageError] = useState(false);
 
   const [name, setName] = useState('');
@@ -96,10 +99,6 @@ export default function AuthGate({ children }) {
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
-  const [newName, setNewName] = useState('');
-  const [newUsername, setNewUsername] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState('Dipendenti');
 
   useEffect(() => {
     let active = true;
@@ -124,20 +123,45 @@ export default function AuthGate({ children }) {
                   : u.role,
         }));
 
-        const ownerCount = normalized.filter(
-          (u) => u.role === 'Amministratore unico'
-        ).length;
+        const owners = normalized.filter(
+          (u) => u.role === 'Amministratore unico' || u.isOwner
+        );
 
-        if (ownerCount > 1) {
-          throw new Error('Sono presenti più amministratori locali.');
+        if (owners.length > 1) {
+          throw new Error('Sono presenti più amministratori locali. Pulizia annullata.');
+        }
+
+        // L'app interna conserva esclusivamente l'unico Amministratore.
+        let finalUsers = owners.length === 1 ? [owners[0]] : [];
+
+        // Pulizia iniziale eseguita una sola volta, solo se esiste un unico proprietario.
+        if (owners.length === 1) {
+          const cleanupDone = await SecureStore.getItemAsync(INITIAL_CLEANUP_KEY);
+
+          if (cleanupDone !== '1') {
+            const ownerAccount = owners[0];
+            const allKeys = await AsyncStorage.getAllKeys();
+            const appKeys = allKeys.filter((key) =>
+              key.startsWith(ASYNC_STORAGE_PREFIX)
+            );
+
+            if (appKeys.length > 0) {
+              await AsyncStorage.multiRemove(appKeys);
+            }
+
+            finalUsers = [ownerAccount];
+
+            await SecureStore.setItemAsync(KEY, JSON.stringify(finalUsers));
+            await SecureStore.setItemAsync(INITIAL_CLEANUP_KEY, '1');
+          }
         }
 
         if (active) {
-          if (JSON.stringify(normalized) !== JSON.stringify(saved)) {
-            await SecureStore.setItemAsync(KEY, JSON.stringify(normalized));
+          if (JSON.stringify(finalUsers) !== JSON.stringify(saved)) {
+            await SecureStore.setItemAsync(KEY, JSON.stringify(finalUsers));
           }
-          setUsers(normalized);
-          setMode(ownerCount === 1 ? 'login' : 'setup');
+          setUsers(finalUsers);
+          setMode(owners.length === 1 ? 'login' : 'setup');
         }
       } catch (error) {
         if (active) setStorageError(true);
@@ -213,6 +237,8 @@ export default function AuthGate({ children }) {
     };
 
     try {
+      // Segna la pulizia iniziale come completata prima di accedere al gestionale.
+      await SecureStore.setItemAsync(INITIAL_CLEANUP_KEY, '1');
       await saveUsers([...users, admin]);
       setActivationCode('');
       setSession({
@@ -271,54 +297,8 @@ export default function AuthGate({ children }) {
     }
   };
 
-  const createUser = async () => {
-    if (session?.role !== 'Amministratore unico') return;
-
-    if (!ROLES.includes(newRole)) {
-      return Alert.alert('Ruolo non consentito', 'Puoi creare account Amministrazione e Finanze, Dipendenti o Clienti VIP.');
-    }
-
-    if (!newName.trim() || newUsername.trim().length < 3) {
-      return Alert.alert('Attenzione', 'Inserisci nome e nome utente valido.');
-    }
-
-    if (newPassword.length < 8) {
-      return Alert.alert('Password', 'Servono almeno 8 caratteri.');
-    }
-
-    const normalized = newUsername.trim().toLowerCase();
-
-    if (users.some((u) => u.username === normalized)) {
-      return Alert.alert('Utente già esistente', 'Scegli un altro nome utente.');
-    }
-
-    const salt = makeSalt();
-    const passwordHash = await hashPassword(newPassword, salt);
-
-    const newUser = {
-      id: String(Date.now()),
-      name: newName.trim(),
-      username: normalized,
-      salt,
-      passwordHash,
-      role: newRole,
-      isOwner: false,
-    };
-
-    try {
-      await saveUsers([...users, newUser]);
-      setNewName('');
-      setNewUsername('');
-      setNewPassword('');
-      Alert.alert('Account creato', 'Il nuovo account è stato registrato.');
-    } catch {
-      Alert.alert('Errore', 'Impossibile salvare il nuovo account.');
-    }
-  };
-
   const logout = () => {
     setSession(null);
-    setShowUsers(false);
     const ownerExists = users.some(
       (u) => u.role === 'Amministratore unico' || u.isOwner
     );
@@ -346,79 +326,14 @@ export default function AuthGate({ children }) {
     );
   }
 
-  if (session?.role === 'Clienti VIP' || session?.role === 'Visitatori') {
-    return (
-      <View style={{ flex: 1 }}>
-        <View style={s.sessionBar}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.sessionName}>{session.name}</Text>
-            <Text style={s.sessionRole}>{session.role === 'Visitatori' ? 'VISITATORE' : 'CLIENTE VIP'}</Text>
-          </View>
-          <Pressable onPress={logout}>
-            <Text style={s.sessionAction}>ESCI</Text>
-          </Pressable>
-        </View>
-        <View style={{ flex: 1 }}>{content}</View>
-      </View>
-    );
-  }
-
   if (session) {
-    if (showUsers && session.role === 'Amministratore unico') {
-      return (
-        <View style={s.manager}>
-          <ScrollView contentContainerStyle={s.container}>
-            <Image source={require('../../assets/logo.jpg')} style={s.logo} resizeMode="contain" />
-            <Text style={s.heading}>GESTIONE UTENTI</Text>
-            <Text style={s.description}>Account registrati su questo dispositivo.</Text>
-
-            {users.map((u) => (
-              <View key={u.id} style={s.userCard}>
-                <Text style={s.userName}>{u.name}</Text>
-                <Text style={s.userInfo}>@{u.username}</Text>
-                <Text style={s.role}>{u.role}</Text>
-              </View>
-            ))}
-
-            <Text style={s.section}>CREA UN NUOVO ACCOUNT</Text>
-            <Field label="NOME" value={newName} onChangeText={setNewName} placeholder="Nome della persona" />
-            <Field label="NOME UTENTE" value={newUsername} onChangeText={setNewUsername} placeholder="Nuovo username" />
-            <Field label="PASSWORD" value={newPassword} onChangeText={setNewPassword} placeholder="Almeno 8 caratteri" secureTextEntry />
-
-            <Text style={s.label}>LIVELLO DI ACCESSO</Text>
-            <View style={s.roles}>
-              {ROLES.map((role) => (
-                <Pressable
-                  key={role}
-                  onPress={() => setNewRole(role)}
-                  style={[s.roleButton, newRole === role && s.roleActive]}
-                >
-                  <Text style={[s.roleButtonText, newRole === role && s.roleActiveText]}>
-                    {role}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Button title="CREA ACCOUNT" onPress={createUser} />
-            <Button title="TORNA ALL'APPLICAZIONE" secondary onPress={() => setShowUsers(false)} />
-          </ScrollView>
-        </View>
-      );
-    }
-
     return (
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom, backgroundColor: '#21121B' }}>
         <View style={s.sessionBar}>
           <View style={{ flex: 1 }}>
             <Text style={s.sessionName}>{session.name}</Text>
             <Text style={s.sessionRole}>{session.role.toUpperCase()}</Text>
           </View>
-          {session.role === 'Amministratore unico' && (
-            <Pressable onPress={() => setShowUsers(true)}>
-              <Text style={s.sessionAction}>UTENTI</Text>
-            </Pressable>
-          )}
           <Pressable onPress={logout}>
             <Text style={s.sessionAction}>ESCI</Text>
           </Pressable>
@@ -466,12 +381,6 @@ export default function AuthGate({ children }) {
           </>
         )}
 
-        <View style={{ height: 12 }} />
-        <Button
-          title="ESPLORA LA BOUTIQUE COME VISITATORE"
-          secondary
-          onPress={() => setSession({ id: 'guest', name: 'Visitatore', role: 'Visitatori' })}
-        />
 
         <Text style={s.footer}>IL MONDO SABRYFOX2025 LINGERIE</Text>
       </ScrollView>

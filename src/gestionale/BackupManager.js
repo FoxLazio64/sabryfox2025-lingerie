@@ -20,10 +20,17 @@ const DATA_FORMAT = 'SABRYFOX2025_DATA';
 const VERSION = 1;
 const KDF_ITERATIONS = 600000;
 const ACCOUNTS_KEY = 'sabryfox_accounts_v1';
+const INITIAL_CLEANUP_KEY = 'sabryfox_initial_clean_v1';
 const PREFIX = '@sabryfox/';
 const EXCLUDED_KEYS = [
   '@sabryfox/token-v1',
   '@sabryfox/user-v1',
+  '@sabryfox/catalog-v1',
+  '@sabryfox/cart-v1',
+  '@sabryfox/favorites-v1',
+  '@sabryfox/orders-v1',
+  '@sabryfox/profile-v1',
+  '@sabryfox/demo/orders',
 ];
 
 function decodeUtf8(bytes) {
@@ -40,7 +47,11 @@ function decodeUtf8(bytes) {
 }
 
 function isOwnerAccount(account) {
-  return account?.role === 'Amministratore unico' || account?.isOwner === true;
+  return (
+    account?.role === 'Amministratore unico' ||
+    account?.role === 'Amministratore' ||
+    account?.isOwner === true
+  );
 }
 
 function validatePayload(payload) {
@@ -71,13 +82,32 @@ function validatePayload(payload) {
       typeof pair[0] !== 'string' ||
       typeof pair[1] !== 'string' ||
       !pair[0].startsWith(PREFIX) ||
-      EXCLUDED_KEYS.includes(pair[0]) ||
       seen.has(pair[0])
     ) {
       throw new Error('Archivio locale non valido.');
     }
 
     seen.add(pair[0]);
+  }
+
+  const statePair = payload.storage.find(([key]) => key === '@sabryfox/gestionale/state-v1');
+  if (statePair) {
+    let savedState;
+    try {
+      savedState = JSON.parse(statePair[1]);
+    } catch {
+      throw new Error('Archivio gestionale nel backup non leggibile.');
+    }
+
+    if (
+      savedState?.version !== 1 ||
+      !Array.isArray(savedState.products) ||
+      !Array.isArray(savedState.movements) ||
+      !Array.isArray(savedState.finance) ||
+      !Array.isArray(savedState.orders)
+    ) {
+      throw new Error('Archivio gestionale nel backup non valido.');
+    }
   }
 
   for (const account of payload.accounts) {
@@ -95,8 +125,15 @@ function validatePayload(payload) {
   const owners = payload.accounts.filter(isOwnerAccount);
 
   if (owners.length !== 1) {
-    throw new Error('Il backup deve contenere un solo Amministratore unico.');
+    throw new Error('Il backup deve contenere un solo Amministratore unico valido.');
   }
+
+  // Migrazione sicura dei backup precedenti:
+  // non ripristina account secondari, token, cataloghi o ordini dimostrativi.
+  payload.accounts = [owners[0]];
+  payload.storage = payload.storage.filter(
+    ([key]) => !EXCLUDED_KEYS.includes(key)
+  );
 }
 
 async function deriveKey(password, salt) {
@@ -115,15 +152,11 @@ async function collectBackupData() {
     ...allKeys.filter(
       (key) => key.startsWith(PREFIX) && !EXCLUDED_KEYS.includes(key)
     ),
-    '@sabryfox/catalog-v1',
-    '@sabryfox/cart-v1',
-    '@sabryfox/favorites-v1',
-    '@sabryfox/orders-v1',
-    '@sabryfox/profile-v1',
+    '@sabryfox/gestionale/state-v1',
     '@sabryfox/gestionale/products',
     '@sabryfox/gestionale/movements',
     '@sabryfox/gestionale/finance',
-    '@sabryfox/demo/orders',
+    '@sabryfox/gestionale/orders',
   ])).filter((key) => !EXCLUDED_KEYS.includes(key));
 
   const storage = (await AsyncStorage.multiGet(keys))
@@ -133,8 +166,9 @@ async function collectBackupData() {
   const accounts = rawAccounts ? JSON.parse(rawAccounts) : [];
 
   if (!Array.isArray(accounts) ||
+      accounts.length !== 1 ||
       accounts.filter(isOwnerAccount).length !== 1) {
-    throw new Error('Non è stato trovato un archivio account valido.');
+    throw new Error('È richiesto esclusivamente l’account dell’Amministratore unico.');
   }
 
   return {
@@ -222,6 +256,7 @@ async function restoreBackup(payload) {
 
   const oldPairs = await AsyncStorage.multiGet(oldKeys);
   const oldAccounts = await SecureStore.getItemAsync(ACCOUNTS_KEY);
+  const oldCleanupMarker = await SecureStore.getItemAsync(INITIAL_CLEANUP_KEY);
   const incomingKeys = new Set(payload.storage.map(([key]) => key));
 
   try {
@@ -233,6 +268,8 @@ async function restoreBackup(payload) {
       ACCOUNTS_KEY,
       JSON.stringify(payload.accounts)
     );
+
+    await SecureStore.setItemAsync(INITIAL_CLEANUP_KEY, '1');
 
     const staleKeys = oldKeys.filter((key) => !incomingKeys.has(key));
 
@@ -259,6 +296,12 @@ async function restoreBackup(payload) {
       } else {
         await SecureStore.deleteItemAsync(ACCOUNTS_KEY);
       }
+
+      if (oldCleanupMarker !== null) {
+        await SecureStore.setItemAsync(INITIAL_CLEANUP_KEY, oldCleanupMarker);
+      } else {
+        await SecureStore.deleteItemAsync(INITIAL_CLEANUP_KEY);
+      }
     } catch {
       throw new Error(
         'Ripristino non riuscito e rollback incompleto. Non chiudere l’app.'
@@ -281,7 +324,7 @@ function ActionButton({ title, onPress, disabled }) {
   );
 }
 
-export default function BackupManager() {
+export default function BackupManager({ runStorageExclusive, onRestoreComplete }) {
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
@@ -304,7 +347,11 @@ export default function BackupManager() {
     setBusy(true);
 
     try {
-      const payload = await collectBackupData();
+      if (typeof runStorageExclusive !== 'function') {
+        throw new Error('Collegamento all’archivio gestionale non disponibile.');
+      }
+
+      const payload = await runStorageExclusive(() => collectBackupData());
       const file = await createEncryptedFile(payload, password);
 
       if (!(await Sharing.isAvailableAsync())) {
@@ -359,7 +406,7 @@ export default function BackupManager() {
 
       Alert.alert(
         'Conferma ripristino',
-        'Il ripristino sostituirà i dati locali della boutique, del magazzino, delle finanze e gli account con quelli contenuti nel backup. Continuare?',
+        'Il ripristino sostituirà i dati locali del gestionale (magazzino, movimenti, ordini e finanze) e l’account con quelli contenuti nel backup. Continuare?',
         [
           { text: 'ANNULLA', style: 'cancel' },
           {
@@ -369,7 +416,17 @@ export default function BackupManager() {
               setBusy(true);
 
               try {
-                await restoreBackup(payload);
+                if (typeof runStorageExclusive !== 'function') {
+                  throw new Error('Collegamento all’archivio gestionale non disponibile.');
+                }
+
+                await runStorageExclusive(async () => {
+                  await restoreBackup(payload);
+                  if (typeof onRestoreComplete === 'function') {
+                    onRestoreComplete();
+                  }
+                });
+
                 setPassword('');
                 setConfirmation('');
 

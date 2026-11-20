@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert, Image, Pressable, ScrollView,
   StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BackupManager from './BackupManager';
-import MarketCatalog from './MarketCatalog';
-import DemoOrders from './DemoOrders';
+import OrdersManager from './OrdersManager';
 
 const C = {
   dark: '#21121B',
@@ -25,7 +24,10 @@ const KEYS = {
   products: '@sabryfox/gestionale/products',
   movements: '@sabryfox/gestionale/movements',
   finance: '@sabryfox/gestionale/finance',
+  orders: '@sabryfox/gestionale/orders',
 };
+
+const STATE_KEY = '@sabryfox/gestionale/state-v1';
 
 const CATEGORIES = [
   'Reggiseni',
@@ -103,6 +105,9 @@ export default function ManagementDashboard({ session }) {
   const [products, setProducts] = useState([]);
   const [movements, setMovements] = useState([]);
   const [finance, setFinance] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const mutationQueue = useRef(Promise.resolve());
+  const storageHealthy = useRef(true);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [category, setCategory] = useState(CATEGORIES[0]);
 
@@ -110,7 +115,7 @@ export default function ManagementDashboard({ session }) {
   const [productName, setProductName] = useState('');
   const [size, setSize] = useState('');
   const [color, setColor] = useState('');
-  const [quantity, setQuantity] = useState('1');
+  const [quantity, setQuantity] = useState('0');
   const [purchasePrice, setPurchasePrice] = useState('');
   const [salePrice, setSalePrice] = useState('');
 
@@ -131,28 +136,131 @@ export default function ManagementDashboard({ session }) {
   const canManageFinance = owner || office;
 
   const menu = owner
-    ? ['Riepilogo', 'Ordini demo', 'Magazzino', 'Movimenti', 'Finanze', 'Catalogo di mercato', 'Impostazioni']
+    ? ['Riepilogo', 'Ordini', 'Magazzino', 'Movimenti', 'Finanze', 'Impostazioni']
     : office
-      ? ['Riepilogo', 'Magazzino', 'Movimenti', 'Finanze', 'Impostazioni']
+      ? ['Riepilogo', 'Ordini', 'Magazzino', 'Movimenti', 'Finanze', 'Impostazioni']
       : ['Riepilogo', 'Magazzino', 'Movimenti', 'Impostazioni'];
+
+  const clearLegacyStorage = async () => {
+    try {
+      const allKeys = await AsyncStorage.getAllKeys();
+      const oldKeys = Object.values(KEYS).filter((key) => allKeys.includes(key));
+      if (oldKeys.length) await AsyncStorage.multiRemove(oldKeys);
+    } catch {
+      // Il nuovo archivio è già stato scritto: le vecchie chiavi non vengono usate.
+    }
+  };
+
+  const readPersistedState = async () => {
+    const raw = await AsyncStorage.getItem(STATE_KEY);
+
+    if (raw !== null) {
+      const state = JSON.parse(raw);
+      if (
+        !state ||
+        state.version !== 1 ||
+        !Array.isArray(state.products) ||
+        !Array.isArray(state.movements) ||
+        !Array.isArray(state.finance) ||
+        !Array.isArray(state.orders)
+      ) {
+        throw new Error('Archivio gestionale unico non valido. I dati non saranno sovrascritti.');
+      }
+
+      await clearLegacyStorage();
+      return state;
+    }
+
+    // Migrazione: legge i quattro archivi precedenti.
+    const pairs = await AsyncStorage.multiGet(Object.values(KEYS));
+    const stored = Object.fromEntries(pairs);
+
+    const migrated = {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      products: JSON.parse(stored[KEYS.products] || '[]'),
+      movements: JSON.parse(stored[KEYS.movements] || '[]'),
+      finance: JSON.parse(stored[KEYS.finance] || '[]'),
+      orders: JSON.parse(stored[KEYS.orders] || '[]'),
+    };
+
+    if (
+      !Array.isArray(migrated.products) ||
+      !Array.isArray(migrated.movements) ||
+      !Array.isArray(migrated.finance) ||
+      !Array.isArray(migrated.orders)
+    ) {
+      throw new Error('I vecchi archivi gestionali non sono validi. I dati originali saranno conservati.');
+    }
+
+    // Prima scrive il nuovo archivio; solo dopo elimina le vecchie chiavi.
+    await AsyncStorage.setItem(STATE_KEY, JSON.stringify(migrated));
+    await clearLegacyStorage();
+    return migrated;
+  };
+
+  const mutateData = (mutator) => {
+    const task = mutationQueue.current.then(async () => {
+      if (!ready || !storageHealthy.current) {
+        throw new Error('Archivio non disponibile. Non sono state salvate modifiche.');
+      }
+
+      const current = await readPersistedState();
+      const next = mutator(current);
+
+      if (
+        !next ||
+        !Array.isArray(next.products) ||
+        !Array.isArray(next.movements) ||
+        !Array.isArray(next.finance) ||
+        !Array.isArray(next.orders)
+      ) {
+        throw new Error('La modifica non ha prodotto un archivio valido.');
+      }
+
+      const payload = {
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        products: next.products,
+        movements: next.movements,
+        finance: next.finance,
+        orders: next.orders,
+      };
+
+      // Una sola scrittura contiene tutti i dati del gestionale.
+      await AsyncStorage.setItem(STATE_KEY, JSON.stringify(payload));
+
+      // La schermata viene aggiornata solo dopo la scrittura riuscita.
+      setProducts(payload.products);
+      setMovements(payload.movements);
+      setFinance(payload.finance);
+      setOrders(payload.orders);
+
+      return payload;
+    });
+
+    mutationQueue.current = task.catch(() => undefined);
+    return task;
+  };
 
   useEffect(() => {
     let active = true;
 
     (async () => {
       try {
-        const values = await AsyncStorage.multiGet(Object.values(KEYS));
-        const stored = Object.fromEntries(values);
+        const stored = await readPersistedState();
 
         if (!active) return;
 
-        setProducts(JSON.parse(stored[KEYS.products] || '[]'));
-        setMovements(JSON.parse(stored[KEYS.movements] || '[]'));
-        setFinance(JSON.parse(stored[KEYS.finance] || '[]'));
+        setProducts(stored.products);
+        setMovements(stored.movements);
+        setFinance(stored.finance);
+        setOrders(stored.orders);
       } catch {
+        storageHealthy.current = false;
         Alert.alert(
           'Archivio gestionale',
-          'Non è stato possibile leggere alcuni dati locali.'
+          'Non è stato possibile leggere i dati locali. Non inserire nuovi dati e non cancellare l’app.'
         );
       } finally {
         if (active) setReady(true);
@@ -162,17 +270,19 @@ export default function ManagementDashboard({ session }) {
     return () => { active = false; };
   }, []);
 
-  useEffect(() => {
-    if (!ready) return;
 
-    AsyncStorage.multiSet([
-      [KEYS.products, JSON.stringify(products)],
-      [KEYS.movements, JSON.stringify(movements)],
-      [KEYS.finance, JSON.stringify(finance)],
-    ]).catch(() => {
-      Alert.alert('Salvataggio', 'Impossibile salvare le ultime modifiche.');
+
+  const runStorageExclusive = (operation) => {
+    const task = mutationQueue.current.then(async () => {
+      if (!ready || !storageHealthy.current) {
+        throw new Error('Archivio non disponibile. Riavvia l’app e verifica i dati.');
+      }
+      return await operation();
     });
-  }, [ready, products, movements, finance]);
+
+    mutationQueue.current = task.catch(() => undefined);
+    return task;
+  };
 
   const totalPieces = products.reduce(
     (sum, item) => sum + Number(item.quantity || 0), 0
@@ -183,15 +293,17 @@ export default function ManagementDashboard({ session }) {
     0
   );
 
-  const addProduct = () => {
-    if (!(owner || office)) {
+  const addProduct = async () => {
+    if (!canManageProducts) {
       return Alert.alert('Accesso negato', 'Non hai i permessi per inserire prodotti.');
     }
+
     const q = Number(quantity);
     const buy = purchasePrice.trim() ? Number(purchasePrice.replace(',', '.')) : 0;
     const sell = salePrice.trim() ? Number(salePrice.replace(',', '.')) : 0;
+    const normalizedCode = code.trim().toUpperCase();
 
-    if (!code.trim() || !productName.trim()) {
+    if (!normalizedCode || !productName.trim()) {
       return Alert.alert('Dati mancanti', 'Inserisci codice e nome del prodotto.');
     }
     if (!Number.isInteger(q) || q < 0) {
@@ -204,119 +316,473 @@ export default function ManagementDashboard({ session }) {
       return Alert.alert('Prezzo non valido', 'Controlla i prezzi inseriti.');
     }
 
-    const normalizedCode = code.trim().toUpperCase();
+    try {
+      await mutateData((current) => {
+        if (current.products.some((p) => p.code === normalizedCode)) {
+          throw new Error('Codice esistente. Utilizza un codice articolo diverso.');
+        }
 
-    if (products.some((p) => p.code === normalizedCode)) {
-      return Alert.alert('Codice esistente', 'Utilizza un codice articolo diverso.');
+        const now = new Date().toISOString();
+        const id = String(Date.now()) + '-' + Math.random().toString(36).slice(2, 7);
+        const item = {
+          id,
+          code: normalizedCode,
+          name: productName.trim(),
+          category,
+          size: size.trim(),
+          color: color.trim(),
+          quantity: q,
+          purchasePrice: buy,
+          salePrice: sell,
+          updatedAt: now,
+        };
+
+        const nextMovements = q > 0
+          ? [{
+              id: id + '-initial',
+              productId: id,
+              productCode: normalizedCode,
+              productName: item.name,
+              type: 'Entrata',
+              quantity: q,
+              reason: 'Carico iniziale',
+              createdAt: now,
+              user: session.name,
+            }, ...current.movements]
+          : current.movements;
+
+        return {
+          ...current,
+          products: [...current.products, item],
+          movements: nextMovements,
+        };
+      });
+
+      setCode('');
+      setProductName('');
+      setSize('');
+      setColor('');
+      setQuantity('0');
+      setPurchasePrice('');
+      setSalePrice('');
+      Alert.alert('Prodotto inserito', 'Articolo salvato nel magazzino.');
+    } catch (error) {
+      Alert.alert('Inserimento non riuscito', error?.message || 'Non è stato possibile salvare il prodotto.');
     }
-
-    const item = {
-      id: String(Date.now()),
-      code: normalizedCode,
-      name: productName.trim(),
-      category,
-      size: size.trim(),
-      color: color.trim(),
-      quantity: q,
-      purchasePrice: buy,
-      salePrice: sell,
-      updatedAt: new Date().toISOString(),
-    };
-
-    setProducts((old) => [...old, item]);
-
-    if (q > 0) {
-      setMovements((old) => [{
-        id: String(Date.now()) + '-initial',
-        productCode: normalizedCode,
-        productName: item.name,
-        type: 'Entrata',
-        quantity: q,
-        reason: 'Carico iniziale',
-        createdAt: new Date().toISOString(),
-        user: session.name,
-      }, ...old]);
-    }
-
-    setCode('');
-    setProductName('');
-    setSize('');
-    setColor('');
-    setQuantity('1');
-    setPurchasePrice('');
-    setSalePrice('');
-    Alert.alert('Prodotto inserito', 'Articolo aggiunto al magazzino.');
   };
 
-  const recordMovement = () => {
+  const recordMovement = async () => {
     if (!(owner || office || employee)) {
       return Alert.alert('Accesso negato', 'Non hai i permessi per registrare movimenti.');
     }
-    const q = Number(movementQuantity);
-    const product = products.find(
-      (p) => p.code === movementCode.trim().toUpperCase()
-    );
 
-    if (!product) {
-      return Alert.alert('Prodotto non trovato', 'Controlla il codice articolo.');
-    }
+    const q = Number(movementQuantity);
+    const normalizedCode = movementCode.trim().toUpperCase();
 
     if (!Number.isInteger(q) || q <= 0) {
       return Alert.alert('Quantità non valida', 'Inserisci un numero intero positivo.');
     }
 
-    if (movementType === 'Uscita' && q > product.quantity) {
-      return Alert.alert('Scorta insufficiente', 'Non puoi scaricare più pezzi di quelli disponibili.');
+    try {
+      await mutateData((current) => {
+        const product = current.products.find((p) => p.code === normalizedCode);
+
+        if (!product) throw new Error('Prodotto non trovato. Controlla il codice articolo.');
+        if (product.archivedAt) throw new Error('Articolo archiviato. Riattivalo prima di registrare movimenti.');
+
+        const available = Number(product.quantity || 0);
+        if (!Number.isInteger(available) || available < 0) {
+          throw new Error('Giacenza non valida. Controlla il prodotto.');
+        }
+        if (!['Entrata', 'Uscita'].includes(movementType)) {
+          throw new Error('Tipo di movimento non valido.');
+        }
+        if (movementType === 'Uscita' && q > available) {
+          throw new Error('Scorta insufficiente. Non puoi scaricare più pezzi di quelli disponibili.');
+        }
+
+        const now = new Date().toISOString();
+        const delta = movementType === 'Entrata' ? q : -q;
+
+        const nextProducts = current.products.map((p) =>
+          p.id === product.id
+            ? { ...p, quantity: available + delta, updatedAt: now }
+            : p
+        );
+
+        const entry = {
+          id: String(Date.now()) + '-' + Math.random().toString(36).slice(2, 7),
+          productId: product.id,
+          productCode: product.code,
+          productName: product.name,
+          type: movementType,
+          quantity: q,
+          reason: movementReason.trim() || 'Movimento magazzino',
+          createdAt: now,
+          user: session.name,
+        };
+
+        return {
+          ...current,
+          products: nextProducts,
+          movements: [entry, ...current.movements],
+        };
+      });
+
+      setMovementCode('');
+      setMovementQuantity('1');
+      setMovementReason('');
+      Alert.alert('Movimento registrato', 'La giacenza è stata salvata.');
+    } catch (error) {
+      Alert.alert('Movimento non registrato', error?.message || 'Non è stato possibile salvare il movimento.');
     }
-
-    const delta = movementType === 'Entrata' ? q : -q;
-
-    setProducts((old) => old.map((p) =>
-      p.id === product.id
-        ? { ...p, quantity: Number(p.quantity) + delta, updatedAt: new Date().toISOString() }
-        : p
-    ));
-
-    setMovements((old) => [{
-      id: String(Date.now()),
-      productCode: product.code,
-      productName: product.name,
-      type: movementType,
-      quantity: q,
-      reason: movementReason.trim() || 'Movimento magazzino',
-      createdAt: new Date().toISOString(),
-      user: session.name,
-    }, ...old]);
-
-    setMovementCode('');
-    setMovementQuantity('1');
-    setMovementReason('');
-
-    Alert.alert('Movimento registrato', 'La giacenza è stata aggiornata.');
   };
 
-  const addFinance = () => {
+  const setProductArchived = async (item, archived) => {
+    if (!owner) return;
+
+    try {
+      await mutateData((current) => {
+        const product = current.products.find(
+          (p) => String(p.id) === String(item.id)
+        );
+
+        if (!product) throw new Error('Articolo non trovato.');
+        if (archived && Number(product.quantity || 0) !== 0) {
+          throw new Error('La giacenza deve essere esattamente zero prima dell’archiviazione.');
+        }
+
+        const now = new Date().toISOString();
+        return {
+          ...current,
+          products: current.products.map((p) =>
+            String(p.id) === String(item.id)
+              ? { ...p, archivedAt: archived ? now : null, updatedAt: now }
+              : p
+          ),
+        };
+      });
+
+      Alert.alert(
+        archived ? 'Articolo archiviato' : 'Articolo riattivato',
+        archived
+          ? 'L’articolo e il suo storico sono stati conservati.'
+          : 'L’articolo è nuovamente disponibile.'
+      );
+    } catch (error) {
+      Alert.alert('Operazione non riuscita', error?.message || 'Non è stato possibile salvare la modifica.');
+    }
+  };
+
+  const addFinance = async () => {
     if (!canManageFinance) {
       return Alert.alert('Accesso negato', 'Non hai i permessi per registrare operazioni finanziarie.');
     }
-    const amount = Number(financeAmount.replace(',', '.'));
 
-    if (!Number.isFinite(amount) || amount <= 0 || !financeNote.trim()) {
+    const amount = Number(financeAmount.replace(',', '.'));
+    const note = financeNote.trim();
+
+    if (!Number.isFinite(amount) || amount <= 0 || !note) {
       return Alert.alert('Dati mancanti', 'Inserisci importo e descrizione.');
     }
 
-    setFinance((old) => [{
-      id: String(Date.now()),
-      type: financeType,
-      amount,
-      note: financeNote.trim(),
-      createdAt: new Date().toISOString(),
-      user: session.name,
-    }, ...old]);
+    if (!['Entrata', 'Uscita'].includes(financeType)) {
+      return Alert.alert('Tipo non valido', 'Seleziona Entrata oppure Uscita.');
+    }
 
-    setFinanceAmount('');
-    setFinanceNote('');
-    Alert.alert('Registrazione completata', 'Movimento finanziario salvato.');
+    try {
+      await mutateData((current) => {
+        const entry = {
+          id: String(Date.now()) + '-' + Math.random().toString(36).slice(2, 7),
+          type: financeType,
+          amount: Number(amount.toFixed(2)),
+          note,
+          createdAt: new Date().toISOString(),
+          user: session.name,
+        };
+
+        return {
+          ...current,
+          finance: [entry, ...current.finance],
+        };
+      });
+
+      setFinanceAmount('');
+      setFinanceNote('');
+      Alert.alert('Registrazione completata', 'Movimento finanziario salvato.');
+    } catch (error) {
+      Alert.alert('Salvataggio non riuscito', error?.message || 'Non è stato possibile registrare il movimento finanziario.');
+    }
+  };
+
+
+
+
+  const confirmOrder = async (draft) => {
+    if (!owner) return false;
+
+    const customer = String(draft?.customer || '').trim();
+    const requestedItems = Array.isArray(draft?.items) ? draft.items : [];
+
+    if (!customer || requestedItems.length === 0) {
+      Alert.alert('Dati mancanti', 'Cliente e articoli sono obbligatori.');
+      return false;
+    }
+
+    let orderNumber = '';
+
+    try {
+      await mutateData((current) => {
+        const requested = new Map();
+
+        for (const line of requestedItems) {
+          const productId = String(line.productId || '');
+          const q = Number(line.quantity);
+          if (!productId || !Number.isInteger(q) || q <= 0) {
+            throw new Error('Controlla le quantità degli articoli dell’ordine.');
+          }
+          requested.set(productId, (requested.get(productId) || 0) + q);
+        }
+
+        const orderItems = [];
+        let total = 0;
+
+        for (const [productId, q] of requested.entries()) {
+          const product = current.products.find((p) => String(p.id) === productId);
+
+          if (!product) throw new Error('Un articolo non è più presente in magazzino.');
+          if (product.archivedAt) throw new Error('Un articolo è archiviato. Riattivalo prima di creare l’ordine.');
+
+          const available = Number(product.quantity || 0);
+          if (!Number.isInteger(available) || available < q) {
+            throw new Error('Scorta insufficiente per ' + product.name + '.');
+          }
+
+          const price = Number(product.salePrice || 0);
+          if (!Number.isFinite(price) || price <= 0) {
+            throw new Error('Prezzo di vendita mancante per ' + product.name + '.');
+          }
+
+          const unitPrice = Number(price.toFixed(2));
+          total += q * unitPrice;
+          orderItems.push({
+            productId: product.id,
+            code: product.code,
+            name: product.name,
+            size: product.size || '',
+            color: product.color || '',
+            quantity: q,
+            unitPrice,
+          });
+        }
+
+        total = Number(total.toFixed(2));
+        const now = new Date().toISOString();
+        const stamp = Date.now();
+        const id = String(stamp) + '-' + Math.random().toString(36).slice(2, 8);
+        const number = 'SF-' + now.slice(0, 10).replace(/-/g, '') + '-' + String(stamp).slice(-5);
+        orderNumber = number;
+
+        const order = {
+          id,
+          number,
+          createdAt: now,
+          customer,
+          items: orderItems,
+          total,
+          status: 'Confermato',
+          paymentStatus: 'Da incassare',
+          createdBy: session.name,
+        };
+
+        const nextProducts = current.products.map((product) => {
+          const line = orderItems.find((item) => String(item.productId) === String(product.id));
+          return line
+            ? { ...product, quantity: Number(product.quantity) - line.quantity, updatedAt: now }
+            : product;
+        });
+
+        const newMovements = orderItems.map((item, index) => ({
+          id: id + '-USCITA-' + index,
+          productId: item.productId,
+          productCode: item.code,
+          productName: item.name,
+          type: 'Uscita',
+          quantity: item.quantity,
+          reason: 'Vendita ordine ' + number,
+          createdAt: now,
+          user: session.name,
+          orderId: id,
+        }));
+
+        return {
+          ...current,
+          products: nextProducts,
+          movements: [...newMovements, ...current.movements],
+          orders: [order, ...current.orders],
+        };
+      });
+
+      Alert.alert(
+        'Ordine registrato',
+        orderNumber + '\nMerce scaricata dal magazzino. Incasso ancora da registrare.'
+      );
+      return true;
+    } catch (error) {
+      Alert.alert('Ordine non registrato', error?.message || 'Verifica gli archivi locali prima di riprovare.');
+      return false;
+    }
+  };
+
+  const registerOrderPayment = (order) => {
+    if (!owner) return;
+
+    Alert.alert(
+      'Conferma incasso',
+      'Hai realmente ricevuto ' + euro(order.total) + ' per l’ordine ' + order.number + '?',
+      [
+        { text: 'NON ANCORA', style: 'cancel' },
+        {
+          text: 'SÌ, RICEVUTO',
+          onPress: async () => {
+            try {
+              await mutateData((current) => {
+                const currentOrder = current.orders.find((item) => item.id === order.id);
+
+                if (!currentOrder || currentOrder.status === 'Annullato') {
+                  throw new Error('Ordine non trovato oppure annullato.');
+                }
+                if (
+                  currentOrder.paymentStatus === 'Pagato' ||
+                  current.finance.some((item) => item.orderId === order.id)
+                ) {
+                  throw new Error('Incasso già registrato. Non verrà creata una seconda entrata.');
+                }
+
+                const amount = Number(currentOrder.total);
+                if (!Number.isFinite(amount) || amount <= 0) {
+                  throw new Error('Importo dell’ordine non valido.');
+                }
+
+                const now = new Date().toISOString();
+                const nextOrders = current.orders.map((item) =>
+                  item.id === order.id
+                    ? { ...item, paymentStatus: 'Pagato', paidAt: now }
+                    : item
+                );
+
+                const entry = {
+                  id: order.id + '-INCASSO',
+                  type: 'Entrata',
+                  amount,
+                  note: 'Incasso ordine ' + currentOrder.number + ' - ' + currentOrder.customer,
+                  createdAt: now,
+                  user: session.name,
+                  orderId: order.id,
+                };
+
+                return {
+                  ...current,
+                  orders: nextOrders,
+                  finance: [entry, ...current.finance],
+                };
+              });
+
+              Alert.alert('Incasso registrato', 'Entrata aggiunta alle finanze.');
+            } catch (error) {
+              Alert.alert('Incasso non registrato', error?.message || 'Verifica lo storico finanziario.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const cancelOrder = (order) => {
+    if (!owner) return;
+
+    Alert.alert(
+      'Annullare ordine?',
+      'La merce verrà reintegrata nel magazzino. Questa operazione è consentita soltanto prima dell’incasso.',
+      [
+        { text: 'TORNA INDIETRO', style: 'cancel' },
+        {
+          text: 'ANNULLA E REINTEGRA',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await mutateData((current) => {
+                const currentOrder = current.orders.find((item) => item.id === order.id);
+
+                if (!currentOrder || currentOrder.status === 'Annullato') {
+                  throw new Error('L’ordine è già stato annullato oppure non esiste.');
+                }
+                if (
+                  currentOrder.paymentStatus === 'Pagato' ||
+                  current.finance.some((item) => item.orderId === order.id)
+                ) {
+                  throw new Error('Ordine già incassato. È necessaria una procedura separata di rimborso.');
+                }
+
+                const quantities = new Map();
+                for (const item of currentOrder.items || []) {
+                  const productId = String(item.productId || '');
+                  const q = Number(item.quantity);
+                  if (!productId || !Number.isInteger(q) || q <= 0) {
+                    throw new Error('Dati articolo dell’ordine non validi. Reintegro interrotto.');
+                  }
+                  quantities.set(productId, (quantities.get(productId) || 0) + q);
+                }
+
+                for (const productId of quantities.keys()) {
+                  if (!current.products.some((p) => String(p.id) === productId)) {
+                    throw new Error('Articolo mancante. Impossibile reintegrare la merce.');
+                  }
+                }
+
+                const now = new Date().toISOString();
+                const nextProducts = current.products.map((product) => {
+                  const q = quantities.get(String(product.id)) || 0;
+                  return q > 0
+                    ? { ...product, quantity: Number(product.quantity || 0) + q, updatedAt: now }
+                    : product;
+                });
+
+                const newMovements = (currentOrder.items || []).map((item, index) => ({
+                  id: currentOrder.id + '-REINTEGRO-' + index,
+                  productId: item.productId,
+                  productCode: item.code,
+                  productName: item.name,
+                  type: 'Entrata',
+                  quantity: item.quantity,
+                  reason: 'Reintegro annullamento ordine ' + currentOrder.number,
+                  createdAt: now,
+                  user: session.name,
+                  orderId: currentOrder.id,
+                }));
+
+                const nextOrders = current.orders.map((item) =>
+                  item.id === order.id
+                    ? { ...item, status: 'Annullato', canceledAt: now }
+                    : item
+                );
+
+                return {
+                  ...current,
+                  products: nextProducts,
+                  movements: [...newMovements, ...current.movements],
+                  orders: nextOrders,
+                };
+              });
+
+              Alert.alert('Ordine annullato', 'La merce è stata reintegrata nel magazzino.');
+            } catch (error) {
+              Alert.alert('Annullamento non riuscito', error?.message || 'Verifica le giacenze.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const renderSummary = () => (
@@ -399,7 +865,7 @@ export default function ManagementDashboard({ session }) {
         </Card>
       )}
 
-      <Section title="Articoli disponibili" />
+      <Section title="Articoli e archivio" />
       {products.length === 0 ? (
         <Card><Text style={s.copy}>Il magazzino è ancora vuoto. Gli articoli appariranno qui dopo il primo inserimento.</Text></Card>
       ) : products.map((item) => (
@@ -423,14 +889,42 @@ export default function ManagementDashboard({ session }) {
               Prezzo di vendita: {euro(item.salePrice)}
             </Text>
           )}
-          {owner && (
-            <Button title="ELIMINA ARTICOLO" danger secondary onPress={() => {
-              Alert.alert('Eliminare articolo?', item.name, [
-                { text: 'Annulla', style: 'cancel' },
-                { text: 'Elimina', style: 'destructive', onPress: () => {
-                  setProducts((old) => old.filter((p) => p.id !== item.id));
-                }},
-              ]);
+          {item.archivedAt && (
+            <Text style={s.copy}>
+              ARTICOLO ARCHIVIATO · Escluso dai nuovi ordini e movimenti
+            </Text>
+          )}
+
+          {owner && !item.archivedAt && (
+            <Button title="ARCHIVIA ARTICOLO" danger secondary onPress={() => {
+              Alert.alert(
+                'Archiviare articolo?',
+                item.name + '\nLo storico e i dati dell’articolo saranno conservati.',
+                [
+                  { text: 'ANNULLA', style: 'cancel' },
+                  {
+                    text: 'ARCHIVIA',
+                    style: 'destructive',
+                    onPress: () => setProductArchived(item, true),
+                  },
+                ]
+              );
+            }} />
+          )}
+
+          {owner && item.archivedAt && (
+            <Button title="RIATTIVA ARTICOLO" secondary onPress={() => {
+              Alert.alert(
+                'Riattivare articolo?',
+                item.name,
+                [
+                  { text: 'ANNULLA', style: 'cancel' },
+                  {
+                    text: 'RIATTIVA',
+                    onPress: () => setProductArchived(item, false),
+                  },
+                ]
+              );
             }} />
           )}
         </Card>
@@ -530,11 +1024,20 @@ export default function ManagementDashboard({ session }) {
       <Card>
         <Text style={s.cardTitle}>SabryFox2025 Lingerie</Text>
         <Text style={s.copy}>Versione gestionale in sviluppo.</Text>
-        <Text style={s.goldText}>© 2026 SabryFox2025 Lingerie. Tutti i diritti riservati.</Text>
+        <Text style={s.goldText}>© 2025 SabryFox2025 Lingerie. Tutti i diritti riservati.</Text>
       </Card>
-      {owner ? <BackupManager /> : null}
+      {owner ? (
+        <BackupManager
+          runStorageExclusive={runStorageExclusive}
+          onRestoreComplete={() => {
+            storageHealthy.current = false;
+          }}
+        />
+      ) : null}
     </>
   );
+
+
 
   if (!ready) {
     return <View style={s.root}><Text style={s.goldText}>Caricamento gestionale...</Text></View>;
@@ -550,8 +1053,17 @@ export default function ManagementDashboard({ session }) {
         ? renderFinance()
         : renderSummary();
       break;
-    case 'Ordini demo': content = owner || office ? <DemoOrders /> : renderSummary(); break;
-      case 'Catalogo di mercato': content = owner ? <MarketCatalog /> : renderSummary(); break;
+    case 'Ordini':
+      content = owner ? (
+        <OrdersManager
+          products={products.filter((item) => !item.archivedAt)}
+          orders={orders}
+          onConfirmOrder={confirmOrder}
+          onRegisterPayment={registerOrderPayment}
+          onCancelOrder={cancelOrder}
+        />
+      ) : renderSummary();
+      break;
     case 'Impostazioni': content = renderSettings(); break;
     default: content = renderSummary();
   }
@@ -586,7 +1098,7 @@ export default function ManagementDashboard({ session }) {
         keyboardShouldPersistTaps="handled">
         {content}
         <View style={s.footer}>
-          <Text style={s.footerText}>© 2026 SabryFox2025 Lingerie. Tutti i diritti riservati.</Text>
+          <Text style={s.footerText}>© 2025 SabryFox2025 Lingerie. Tutti i diritti riservati.</Text>
         </View>
       </ScrollView>
     </View>
