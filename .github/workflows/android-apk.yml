@@ -61,7 +61,7 @@ jobs:
       - name: Genera progetto Android
         run: npx expo prebuild --platform android --no-install
 
-      - name: Allinea compilatore Kotlin a Firebase
+      - name: Usa Firebase BoM compatibile con Expo SDK 58
         shell: bash
         run: |
           set -euo pipefail
@@ -69,12 +69,12 @@ jobs:
           const fs = require('fs');
           const file = 'android/build.gradle';
           let source = fs.readFileSync(file, 'utf8');
-          const pattern = /classpath\s*\(\s*kotlinVersion\s*\?\s*"org\.jetbrains\.kotlin:kotlin-gradle-plugin:\$kotlinVersion"\s*:\s*'org\.jetbrains\.kotlin:kotlin-gradle-plugin'\s*\)/;
-          const replacement = "classpath('org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.21')";
-          if (!pattern.test(source)) throw new Error('Configurazione Kotlin non riconosciuta.');
-          source = source.replace(pattern, replacement);
-          fs.writeFileSync(file, source);
-          console.log('Kotlin 2.4.21 configurato.');
+          const setting = "set('react-native', [versions: [firebase: [bom: '34.19.0']]])";
+          if (!source.includes(setting)) {
+            source += '\n\nproject.ext {\n  ' + setting + '\n}\n';
+          }
+          if (!source.includes(setting)) throw new Error('Verifica BoM non riuscita.');
+          console.log('Firebase BoM 34.19.0 configurato.');
           INNER
 
       - name: Configura Java 17
