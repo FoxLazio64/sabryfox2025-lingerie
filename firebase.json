@@ -6,5 +6,8 @@
   },
   "react-native": {
     "database_persistence_enabled": true
+  },
+  "database": {
+    "rules": "database.rules.json"
   }
 }

@@ -1,0 +1,71 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "roles": {
+      ".read": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true",
+      "$uid": {
+        ".read": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true || (auth != null && auth.uid === $uid)",
+        ".write": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true",
+        ".validate": "newData.hasChildren(['role','active']) && newData.child('active').isBoolean() && (newData.child('role').val() === 'Amministrazione e Finanze' || newData.child('role').val() === 'Dipendenti' || newData.child('role').val() === 'Clienti VIP' || newData.child('role').val() === 'Visitatori')"
+      }
+    },
+    "company": {
+      "products": {
+        ".read": "(auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Amministrazione e Finanze') || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Dipendenti')",
+        "$id": {
+          ".write": "(auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Amministrazione e Finanze')"
+        }
+      },
+      "movements": {
+        ".read": "(auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Amministrazione e Finanze') || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Dipendenti')",
+        "$id": {
+          ".write": "(auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Amministrazione e Finanze')"
+        }
+      },
+      "orders": {
+        ".read": "(auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Amministrazione e Finanze') || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Dipendenti')",
+        "$id": {
+          ".write": "(auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Amministrazione e Finanze')"
+        }
+      },
+      "finance": {
+        ".read": "(auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Amministrazione e Finanze')",
+        "$id": {
+          ".write": "(auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Amministrazione e Finanze')"
+        }
+      },
+      "privateCosts": {
+        ".read": "(auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Amministrazione e Finanze')",
+        "$id": {
+          ".write": "(auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Amministrazione e Finanze')"
+        }
+      }
+    },
+    "publicCatalog": {
+      ".read": true,
+      ".write": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true"
+    },
+    "vipCatalog": {
+      ".read": "(auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Clienti VIP')",
+      ".write": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true"
+    },
+    "customerProfiles": {
+      ".read": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true",
+      "$uid": {
+        ".read": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true || (auth != null && auth.uid === $uid)",
+        ".write": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true || (auth != null && auth.uid === $uid)",
+        ".validate": "!newData.child('role').exists() && !newData.child('isAdmin').exists() && !newData.child('isOwner').exists()"
+      }
+    },
+    "customerOrders": {
+      ".read": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true",
+      "$uid": {
+        ".read": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true || (auth != null && auth.uid === $uid)",
+        "$orderId": {
+          ".write": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true || (auth != null && auth.uid === $uid && !data.exists() && newData.exists())"
+        }
+      }
+    }
+  }
+}
