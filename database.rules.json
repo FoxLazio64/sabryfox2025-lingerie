@@ -66,6 +66,13 @@
           ".write": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true || (auth != null && auth.uid === $uid && !data.exists() && newData.exists())"
         }
       }
+    },
+    "system": {
+      "ownerUid": {
+        ".read": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true",
+        ".write": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true && (!data.exists() || data.val() === auth.uid) && newData.val() === auth.uid",
+        ".validate": "newData.isString() && newData.val() === auth.uid"
+      }
     }
   }
 }

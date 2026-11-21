@@ -6,6 +6,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BackupManager from './BackupManager';
 import OrdersManager from './OrdersManager';
+import CloudOwnerLink from './CloudOwnerLink';
 
 const C = {
   dark: '#21121B',
@@ -1016,6 +1017,7 @@ export default function ManagementDashboard({ session }) {
   const renderSettings = () => (
     <>
       <Section title="Impostazioni" copy="Configurazione del profilo aziendale." />
+      {owner ? <CloudOwnerLink /> : null}
       <Card>
         <Text style={s.cardTitle}>{session.name}</Text>
         <Text style={s.goldText}>{session.role}</Text>

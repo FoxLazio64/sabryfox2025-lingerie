@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - tablet-sync-20261117
+      - multi-device-roles-20261120
   workflow_dispatch:
 
 permissions:
@@ -22,6 +23,16 @@ jobs:
     steps:
       - name: Scarica progetto
         uses: actions/checkout@v7
+
+      - name: Ripristina configurazione Firebase Android
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_SERVICES_JSON_BASE64"
+          printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > google-services.json
+          chmod 600 google-services.json
+          node -e "const c=require('./google-services.json'); if(c.project_info.project_id!=='sabryfox2025-lingerie') process.exit(1); console.log('Configurazione Firebase verificata')"
 
       - name: Configura Node.js
         uses: actions/setup-node@v7
