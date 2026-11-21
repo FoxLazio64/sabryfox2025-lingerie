@@ -61,7 +61,7 @@ jobs:
       - name: Genera progetto Android
         run: npx expo prebuild --platform android --no-install
 
-      - name: Usa Firebase BoM compatibile con Expo SDK 58
+      - name: Posiziona Firebase BoM prima del plugin Expo
         shell: bash
         run: |
           set -euo pipefail
@@ -69,12 +69,25 @@ jobs:
           const fs = require('fs');
           const file = 'android/build.gradle';
           let source = fs.readFileSync(file, 'utf8');
-          const setting = "set('react-native', [versions: [firebase: [bom: '34.19.0']]])";
-          if (!source.includes(setting)) {
-            source += '\n\nproject.ext {\n  ' + setting + '\n}\n';
+
+          const stale = /project\.ext\s*\{\s*set\('react-native',\s*\[versions:\s*\[firebase:\s*\[bom:\s*'34\.19\.0'\]\]\]\)\s*\}/g;
+          source = source.replace(stale, '');
+
+          const marker = /apply plugin:\s*["']expo-root-project["']/;
+          const found = source.match(marker);
+          if (!found) throw new Error('Plugin principale Expo non trovato.');
+
+          const block = "project.ext {\n  set('react-native', [versions: [firebase: [bom: '34.19.0']]])\n}";
+          source = source.replace(marker, block + '\n\n' + found[0]);
+
+          const settingIndex = source.indexOf("set('react-native'");
+          const pluginIndex = source.search(marker);
+          if (settingIndex < 0 || settingIndex > pluginIndex) {
+            throw new Error('Impostazione Firebase non posizionata correttamente.');
           }
-          if (!source.includes(setting)) throw new Error('Verifica BoM non riuscita.');
-          console.log('Firebase BoM 34.19.0 configurato.');
+
+          fs.writeFileSync(file, source);
+          console.log('Firebase BoM 34.19.0 posizionata prima del plugin Expo.');
           INNER
 
       - name: Configura Java 17
