@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert, Image, Pressable, ScrollView,
+  Alert, Clipboard, Image, Pressable, ScrollView,
   StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -223,9 +223,24 @@ export default function AuthGate({ children }) {
         setCloudStatus('Verifica prima la tua email proprietaria dal link inviato da Firebase, poi premi Ricontrolla.');
         return;
       }
-      const snap = await database().ref(`ownerDevices/${deviceId}`).once('value');
-      const devData = snap.val();
-      if (devData && devData.approved === true) {
+      const allSnap = await database().ref('ownerDevices').once('value');
+      const allDevices = allSnap.val() || {};
+      const approvedEntries = Object.entries(allDevices).filter(([, item]) => item && item.approved === true);
+      let isApproved = approvedEntries.some(([key]) => key === deviceId);
+
+      if (!isApproved && approvedEntries.length === 0 && deviceId) {
+        await database().ref(`ownerDevices/${deviceId}`).set({
+          deviceId,
+          label: 'Tablet Principale',
+          platform: 'android',
+          approved: true,
+          ownerUid: current.uid,
+          updatedAt: new Date().toISOString(),
+        });
+        isApproved = true;
+      }
+
+      if (isApproved) {
         setSession({
           id: current.uid,
           name: 'Amministratore Unico',
@@ -237,7 +252,7 @@ export default function AuthGate({ children }) {
         setCloudPassword('');
       } else {
         setCloudStatus(
-          `Account proprietario verificato, ma questo dispositivo (${deviceId}) non è ancora autorizzato dal tablet.`
+          'Account proprietario verificato, ma questo secondo dispositivo non è ancora stato autorizzato dal dispositivo principale.'
         );
       }
       return;
@@ -372,7 +387,18 @@ export default function AuthGate({ children }) {
               Questo dispositivo non può creare un Amministratore unico. Accedi con un account già autorizzato oppure invia una richiesta di accesso per un ruolo aziendale o VIP.
             </Text>
             {deviceId ? (
-              <Text style={s.deviceBadge}>ID Dispositivo: {deviceId}</Text>
+              <View style={{ alignItems: 'center', marginBottom: 14 }}>
+                <Text style={s.deviceBadge}>ID Dispositivo: {deviceId}</Text>
+                <Pressable
+                  onPress={() => {
+                    Clipboard.setString(deviceId);
+                    Alert.alert('Copiato', 'Il codice del dispositivo è stato copiato.');
+                  }}
+                  style={{ borderWidth: 1, borderColor: '#C9A66B', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 6 }}
+                >
+                  <Text style={{ color: '#E7D4AC', fontSize: 12, fontWeight: '800' }}>COPIA CODICE DISPOSITIVO</Text>
+                </Pressable>
+              </View>
             ) : null}
 
             <View style={s.tabsRow}>
@@ -464,7 +490,7 @@ const s = StyleSheet.create({
   line: { height: 1, backgroundColor: '#C9A66B', width: 65, alignSelf: 'center', marginVertical: 15 },
   heading: { color: '#E7D4AC', fontSize: 18, textAlign: 'center', letterSpacing: 1.2, marginBottom: 9, fontFamily: 'Georgia' },
   description: { color: '#D5C1C6', textAlign: 'center', fontSize: 12, lineHeight: 19, marginBottom: 14 },
-  deviceBadge: { color: '#C9A66B', fontSize: 11, textAlign: 'center', marginBottom: 12, fontWeight: '700' },
+  deviceBadge: { color: '#C9A66B', fontSize: 14, textAlign: 'center', marginBottom: 8, fontWeight: '700' },
   tabsRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   tabBtn: { flex: 1, borderWidth: 1, borderColor: '#C9A66B', borderRadius: 18, paddingVertical: 9, alignItems: 'center' },
   tabBtnActive: { backgroundColor: '#C9A66B' },
