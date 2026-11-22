@@ -212,7 +212,12 @@ export default function AuthGate({ children }) {
   };
 
   const verifyCloudAccess = async () => {
-    const current = auth().currentUser;
+    const authMod = typeof auth === 'function' ? auth() : auth;
+    const dbMod = typeof database === 'function' ? database() : database;
+    if (!authMod || !dbMod || typeof dbMod.ref !== 'function') {
+      throw new Error('Servizio cloud non disponibile su questo dispositivo.');
+    }
+    const current = authMod.currentUser;
     setHasCloudUser(!!current);
     setIsCloudEmailVerified(!!current?.emailVerified);
     if (!current) return;
@@ -223,13 +228,13 @@ export default function AuthGate({ children }) {
         setCloudStatus('Verifica prima la tua email proprietaria dal link inviato da Firebase, poi premi Ricontrolla.');
         return;
       }
-      const allSnap = await database().ref('ownerDevices').once('value');
+      const allSnap = await dbMod.ref('ownerDevices').once('value');
       const allDevices = allSnap.val() || {};
       const approvedEntries = Object.entries(allDevices).filter(([, item]) => item && item.approved === true);
       let isApproved = approvedEntries.some(([key]) => key === deviceId);
 
       if (!isApproved && approvedEntries.length === 0 && deviceId) {
-        await database().ref(`ownerDevices/${deviceId}`).set({
+        await dbMod.ref(`ownerDevices/${deviceId}`).set({
           deviceId,
           label: 'Tablet Principale',
           platform: 'android',
@@ -258,7 +263,7 @@ export default function AuthGate({ children }) {
       return;
     }
 
-    const roleSnap = await database().ref(`roles/${current.uid}`).once('value');
+    const roleSnap = await dbMod.ref(`roles/${current.uid}`).once('value');
     const roleData = roleSnap.val();
     if (roleData && roleData.active === true && ALLOWED_ROLES.includes(roleData.role)) {
       setSession({
@@ -325,7 +330,8 @@ export default function AuthGate({ children }) {
     setLoginPassword('');
     setCloudPassword('');
     try {
-      if (auth().currentUser) await signOutCloudIdentity();
+      const a = typeof auth === 'function' ? auth() : auth;
+      if (a && a.currentUser) await signOutCloudIdentity();
     setHasCloudUser(false);
     setIsCloudEmailVerified(false);
     } catch {}
@@ -472,6 +478,7 @@ export default function AuthGate({ children }) {
             <Field label="PASSWORD" value={loginPassword} onChangeText={setLoginPassword} placeholder="La tua password" secureTextEntry />
 
             <Button title="ACCEDI" onPress={login} />
+            <Button title="ACCESSO CLOUD (EMAIL)" onPress={() => setMode('blocked')} secondary />
           </>
         )}
 

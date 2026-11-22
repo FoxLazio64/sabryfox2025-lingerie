@@ -1,5 +1,13 @@
 import auth from '@react-native-firebase/auth';
 
+function getAuth() {
+  const instance = typeof auth === 'function' ? auth() : auth;
+  if (!instance || typeof instance.signInWithEmailAndPassword !== 'function') {
+    throw new Error('Servizio di autenticazione non pronto. Riavvia l’app.');
+  }
+  return instance;
+}
+
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
@@ -28,10 +36,11 @@ function identityOf(user) {
   };
 }
 
-async function registerCloudIdentity(email, password) {
+export async function registerCloudIdentity(email, password) {
   const cleanEmail = validateCredentials(email, password);
+  const a = getAuth();
 
-  const credential = await auth().createUserWithEmailAndPassword(
+  const credential = await a.createUserWithEmailAndPassword(
     cleanEmail,
     password
   );
@@ -41,10 +50,11 @@ async function registerCloudIdentity(email, password) {
   return identityOf(credential.user);
 }
 
-async function signInCloudIdentity(email, password) {
+export async function signInCloudIdentity(email, password) {
   const cleanEmail = validateCredentials(email, password);
+  const a = getAuth();
 
-  const credential = await auth().signInWithEmailAndPassword(
+  const credential = await a.signInWithEmailAndPassword(
     cleanEmail,
     password
   );
@@ -52,16 +62,18 @@ async function signInCloudIdentity(email, password) {
   return identityOf(credential.user);
 }
 
-async function refreshCloudIdentity() {
-  const user = auth().currentUser;
+export async function refreshCloudIdentity() {
+  const a = getAuth();
+  const user = a.currentUser;
   if (!user) return null;
 
   await user.reload();
-  return identityOf(auth().currentUser);
+  return identityOf(a.currentUser);
 }
 
-async function resendCloudVerification() {
-  const user = auth().currentUser;
+export async function resendCloudVerification() {
+  const a = getAuth();
+  const user = a.currentUser;
 
   if (!user) {
     throw new Error('Nessun account Firebase autenticato.');
@@ -74,14 +86,9 @@ async function resendCloudVerification() {
   return identityOf(user);
 }
 
-async function signOutCloudIdentity() {
-  await auth().signOut();
+export async function signOutCloudIdentity() {
+  const a = getAuth();
+  if (a.currentUser) {
+    await a.signOut();
+  }
 }
-
-module.exports = {
-  registerCloudIdentity,
-  signInCloudIdentity,
-  refreshCloudIdentity,
-  resendCloudVerification,
-  signOutCloudIdentity,
-};
