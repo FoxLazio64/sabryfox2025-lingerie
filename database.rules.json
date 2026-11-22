@@ -10,6 +10,20 @@
         ".validate": "newData.hasChildren(['role','active']) && newData.child('active').isBoolean() && (newData.child('role').val() === 'Amministrazione e Finanze' || newData.child('role').val() === 'Dipendenti' || newData.child('role').val() === 'Clienti VIP' || newData.child('role').val() === 'Visitatori')"
       }
     },
+    "accessRequests": {
+      ".read": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true",
+      "$reqId": {
+        ".write": "auth != null && (auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true || (!data.exists() && newData.exists() && newData.child('requesterUid').val() === auth.uid))",
+        ".validate": "newData.hasChildren(['requesterUid','requestedRole','status']) && newData.child('requesterUid').isString() && newData.child('status').val() === 'pending' && (newData.child('requestedRole').val() === 'Amministrazione e Finanze' || newData.child('requestedRole').val() === 'Dipendenti' || newData.child('requestedRole').val() === 'Clienti VIP')"
+      }
+    },
+    "ownerDevices": {
+      ".read": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true",
+      ".write": "auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true",
+      "$deviceId": {
+        ".validate": "newData.hasChildren(['deviceId','approved']) && newData.child('deviceId').isString() && newData.child('approved').isBoolean()"
+      }
+    },
     "company": {
       "products": {
         ".read": "(auth != null && auth.token.email === 'fabio28164@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Amministrazione e Finanze') || (auth != null && root.child('roles').child(auth.uid).child('active').val() === true && root.child('roles').child(auth.uid).child('role').val() === 'Dipendenti')",

@@ -128,9 +128,8 @@ function validatePayload(payload) {
     throw new Error('Il backup deve contenere un solo Amministratore unico valido.');
   }
 
-  // Migrazione sicura dei backup precedenti:
-  // non ripristina account secondari, token, cataloghi o ordini dimostrativi.
-  payload.accounts = [owners[0]];
+  // Conserva tutti gli account interni, verificando che esista un solo Amministratore unico.
+  // Token, cataloghi e ordini dimostrativi restano esclusi dal backup.
   payload.storage = payload.storage.filter(
     ([key]) => !EXCLUDED_KEYS.includes(key)
   );
@@ -166,9 +165,10 @@ async function collectBackupData() {
   const accounts = rawAccounts ? JSON.parse(rawAccounts) : [];
 
   if (!Array.isArray(accounts) ||
-      accounts.length !== 1 ||
+      accounts.length < 1 ||
+      accounts.length > 500 ||
       accounts.filter(isOwnerAccount).length !== 1) {
-    throw new Error('È richiesto esclusivamente l’account dell’Amministratore unico.');
+    throw new Error('È richiesto un solo Amministratore unico e un archivio di account interni valido.');
   }
 
   return {
@@ -406,7 +406,7 @@ export default function BackupManager({ runStorageExclusive, onRestoreComplete }
 
       Alert.alert(
         'Conferma ripristino',
-        'Il ripristino sostituirà i dati locali del gestionale (magazzino, movimenti, ordini e finanze) e l’account con quelli contenuti nel backup. Continuare?',
+        'Il ripristino sostituirà i dati locali del gestionale (magazzino, movimenti, ordini e finanze) e tutti gli account interni con quelli contenuti nel backup. Continuare?',
         [
           { text: 'ANNULLA', style: 'cancel' },
           {

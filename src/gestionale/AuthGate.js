@@ -5,9 +5,24 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import { ADMIN_ACTIVATION_HASH } from './activation-config';
+import auth from '@react-native-firebase/auth';
+import database from '@react-native-firebase/database';
+import {
+  registerCloudIdentity,
+  signInCloudIdentity,
+  refreshCloudIdentity,
+  resendCloudVerification,
+  signOutCloudIdentity,
+} from './CloudIdentityService';
+import {
+  ALLOWED_ROLES,
+  submitAccessRequest,
+} from './CloudRoleService';
+import { getOrCreateLocalDeviceId } from './DeviceAuthorizationService';
+
+const OWNER_EMAIL = 'fabio28164@gmail.com';
+const KEY = 'sabryfox_accounts_v1';
 
 function makeSalt() {
   return Array.from(Crypto.getRandomBytes(16))
@@ -19,17 +34,6 @@ async function hashPassword(password, salt) {
     Crypto.CryptoDigestAlgorithm.SHA256,
     salt + ':' + password
   );
-}
-
-const KEY = 'sabryfox_accounts_v1';
-const INITIAL_CLEANUP_KEY = 'sabryfox_initial_clean_v1';
-const ASYNC_STORAGE_PREFIX = '@sabryfox/';
-
-function constantTimeEqual(a, b) {
-  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
-  let difference = 0;
-  for (let i = 0; i < a.length; i++) difference |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return difference === 0;
 }
 
 function Field({ label, value, onChangeText, placeholder, secureTextEntry }) {
@@ -52,14 +56,14 @@ function Field({ label, value, onChangeText, placeholder, secureTextEntry }) {
           <Pressable
             onPress={() => setVisible(v => !v)}
             accessibilityRole="button"
-            accessibilityLabel={visible ? "Nascondi password" : "Mostra password"}
+            accessibilityLabel={visible ? 'Nascondi password' : 'Mostra password'}
             style={{
               position: 'absolute',
               right: 10,
               top: 0,
               bottom: 0,
               justifyContent: 'center',
-              paddingHorizontal: 6
+              paddingHorizontal: 6,
             }}
           >
             <Text style={{ fontSize: 20 }}>{visible ? '🙈' : '👁️'}</Text>
@@ -69,6 +73,7 @@ function Field({ label, value, onChangeText, placeholder, secureTextEntry }) {
     </View>
   );
 }
+
 function Button({ title, onPress, secondary }) {
   return (
     <Pressable
@@ -85,26 +90,32 @@ function Button({ title, onPress, secondary }) {
 export default function AuthGate({ children }) {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState('login');
+  const [mode, setMode] = useState('blocked');
   const [users, setUsers] = useState([]);
   const [session, setSession] = useState(null);
   const [storageError, setStorageError] = useState(false);
-
-  const [name, setName] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [activationCode, setActivationCode] = useState('');
+  const [deviceId, setDeviceId] = useState('');
 
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
+  const [cloudTab, setCloudTab] = useState('signin');
+  const [cloudEmail, setCloudEmail] = useState('');
+  const [cloudPassword, setCloudPassword] = useState('');
+  const [reqName, setReqName] = useState('');
+  const [reqRole, setReqRole] = useState(ALLOWED_ROLES[1]);
+  const [reqNote, setReqNote] = useState('');
+  const [cloudStatus, setCloudStatus] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
 
     (async () => {
       try {
+        const localDevId = await getOrCreateLocalDeviceId();
+        if (active) setDeviceId(localDevId);
+
         const raw = await SecureStore.getItemAsync(KEY);
         const saved = raw ? JSON.parse(raw) : [];
 
@@ -131,37 +142,12 @@ export default function AuthGate({ children }) {
           throw new Error('Sono presenti più amministratori locali. Pulizia annullata.');
         }
 
-        // L'app interna conserva esclusivamente l'unico Amministratore.
-        let finalUsers = owners.length === 1 ? [owners[0]] : [];
-
-        // Pulizia iniziale eseguita una sola volta, solo se esiste un unico proprietario.
-        if (owners.length === 1) {
-          const cleanupDone = await SecureStore.getItemAsync(INITIAL_CLEANUP_KEY);
-
-          if (cleanupDone !== '1') {
-            const ownerAccount = owners[0];
-            const allKeys = await AsyncStorage.getAllKeys();
-            const appKeys = allKeys.filter((key) =>
-              key.startsWith(ASYNC_STORAGE_PREFIX)
-            );
-
-            if (appKeys.length > 0) {
-              await AsyncStorage.multiRemove(appKeys);
-            }
-
-            finalUsers = [ownerAccount];
-
-            await SecureStore.setItemAsync(KEY, JSON.stringify(finalUsers));
-            await SecureStore.setItemAsync(INITIAL_CLEANUP_KEY, '1');
-          }
-        }
-
         if (active) {
-          if (JSON.stringify(finalUsers) !== JSON.stringify(saved)) {
-            await SecureStore.setItemAsync(KEY, JSON.stringify(finalUsers));
+          if (JSON.stringify(normalized) !== JSON.stringify(saved)) {
+            await SecureStore.setItemAsync(KEY, JSON.stringify(normalized));
           }
-          setUsers(finalUsers);
-          setMode(owners.length === 1 ? 'login' : 'setup');
+          setUsers(normalized);
+          setMode(owners.length === 1 ? 'login' : 'blocked');
         }
       } catch (error) {
         if (active) setStorageError(true);
@@ -176,80 +162,6 @@ export default function AuthGate({ children }) {
   const saveUsers = async (next) => {
     await SecureStore.setItemAsync(KEY, JSON.stringify(next));
     setUsers(next);
-  };
-
-  const createAdmin = async () => {
-    if (users.some((u) => u.role === 'Amministratore unico' || u.isOwner)) {
-      return Alert.alert('Amministratore già presente', 'Su questo dispositivo esiste già un amministratore.');
-    }
-
-    const suppliedCode = activationCode.replace(/\s+/g, '').toUpperCase();
-
-    if (suppliedCode.length !== 64) {
-      return Alert.alert('Codice necessario', 'Inserisci il codice riservato di attivazione.');
-    }
-
-    let suppliedHash;
-    try {
-      suppliedHash = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        suppliedCode
-      );
-    } catch {
-      return Alert.alert('Errore', 'Impossibile verificare il codice di attivazione.');
-    }
-
-    if (
-      !/^[a-f0-9]{64}$/i.test(ADMIN_ACTIVATION_HASH) ||
-      !constantTimeEqual(suppliedHash.toLowerCase(), ADMIN_ACTIVATION_HASH.toLowerCase())
-    ) {
-      return Alert.alert('Codice non valido', 'Il codice di attivazione non è corretto.');
-    }
-
-    if (!name.trim() || username.trim().length < 3) {
-      return Alert.alert('Dati mancanti', 'Inserisci nome e utente di almeno 3 caratteri.');
-    }
-
-    if (password.length < 8) {
-      return Alert.alert('Password non valida', 'Scegli una password di almeno 8 caratteri.');
-    }
-
-    if (password !== confirm) {
-      return Alert.alert('Attenzione', 'Le password non coincidono.');
-    }
-
-    const normalized = username.trim().toLowerCase();
-    if (users.some((u) => u.username === normalized)) {
-      return Alert.alert('Utente già esistente', 'Scegli un altro nome utente.');
-    }
-
-    const salt = makeSalt();
-    const passwordHash = await hashPassword(password, salt);
-
-    const admin = {
-      id: String(Date.now()),
-      name: name.trim(),
-      username: normalized,
-      salt,
-      passwordHash,
-      role: 'Amministratore unico',
-      isOwner: true,
-    };
-
-    try {
-      // Segna la pulizia iniziale come completata prima di accedere al gestionale.
-      await SecureStore.setItemAsync(INITIAL_CLEANUP_KEY, '1');
-      await saveUsers([...users, admin]);
-      setActivationCode('');
-      setSession({
-        id: admin.id,
-        name: admin.name,
-        username: admin.username,
-        role: admin.role,
-      });
-    } catch {
-      Alert.alert('Errore', 'Non è stato possibile salvare l’amministratore.');
-    }
   };
 
   const login = async () => {
@@ -297,14 +209,105 @@ export default function AuthGate({ children }) {
     }
   };
 
-  const logout = () => {
+  const verifyCloudAccess = async () => {
+    const current = auth().currentUser;
+    if (!current) return;
+
+    const email = String(current.email || '').trim().toLowerCase();
+    if (email === OWNER_EMAIL) {
+      if (!current.emailVerified) {
+        setCloudStatus('Verifica prima la tua email proprietaria dal link inviato da Firebase, poi premi Ricontrolla.');
+        return;
+      }
+      const snap = await database().ref(`ownerDevices/${deviceId}`).once('value');
+      const devData = snap.val();
+      if (devData && devData.approved === true) {
+        setSession({
+          id: current.uid,
+          name: 'Amministratore Unico',
+          username: email,
+          role: 'Amministratore unico',
+          cloudUid: current.uid,
+          deviceId,
+        });
+        setCloudPassword('');
+      } else {
+        setCloudStatus(
+          `Account proprietario verificato, ma questo dispositivo (${deviceId}) non è ancora autorizzato dal tablet.`
+        );
+      }
+      return;
+    }
+
+    const roleSnap = await database().ref(`roles/${current.uid}`).once('value');
+    const roleData = roleSnap.val();
+    if (roleData && roleData.active === true && ALLOWED_ROLES.includes(roleData.role)) {
+      setSession({
+        id: current.uid,
+        name: current.displayName || email,
+        username: email,
+        role: roleData.role,
+        cloudUid: current.uid,
+        deviceId,
+      });
+      setCloudPassword('');
+      return;
+    }
+
+    setCloudStatus('Account autenticato: nessuna autorizzazione attiva ancora assegnata dal proprietario.');
+  };
+
+  const handleCloudAuth = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (cloudTab === 'register') {
+        await registerCloudIdentity(cloudEmail, cloudPassword);
+        if (cloudEmail.trim().toLowerCase() !== OWNER_EMAIL) {
+          await submitAccessRequest({
+            name: reqName,
+            requestedRole: reqRole,
+            note: reqNote,
+          });
+          setCloudStatus('Registrazione completata e richiesta inviata. Attendi approvazione dall’Amministratore unico.');
+        } else {
+          setCloudStatus('Email di verifica inviata al proprietario. Confermala e poi premi Verifica stato.');
+        }
+      } else {
+        await signInCloudIdentity(cloudEmail, cloudPassword);
+        await verifyCloudAccess();
+      }
+    } catch (e) {
+      Alert.alert('Attenzione', e.message || 'Operazione cloud non riuscita.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRefreshCloud = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await refreshCloudIdentity();
+      await verifyCloudAccess();
+    } catch (e) {
+      Alert.alert('Attenzione', e.message || 'Impossibile aggiornare lo stato.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const logout = async () => {
     setSession(null);
     const ownerExists = users.some(
       (u) => u.role === 'Amministratore unico' || u.isOwner
     );
-    setMode(ownerExists ? 'login' : 'setup');
+    setMode(ownerExists ? 'login' : 'blocked');
     setLoginPassword('');
-    setActivationCode('');
+    setCloudPassword('');
+    try {
+      if (auth().currentUser) await signOutCloudIdentity();
+    } catch {}
   };
 
   if (loading) {
@@ -356,18 +359,77 @@ export default function AuthGate({ children }) {
         <Text style={s.subtitle}>LINGERIE</Text>
         <View style={s.line} />
 
-        {mode === 'setup' ? (
+        {mode === 'blocked' ? (
           <>
-            <Text style={s.heading}>PRIMA CONFIGURAZIONE</Text>
-            <Text style={s.description}>Inserisci il codice riservato e crea l'unico account amministratore di questo dispositivo.</Text>
-            <Field label="CODICE DI ATTIVAZIONE RISERVATO" value={activationCode} onChangeText={setActivationCode} placeholder="Codice riservato" secureTextEntry />
+            <Text style={s.heading}>DISPOSITIVO NON AUTORIZZATO</Text>
+            <Text style={s.description}>
+              Questo dispositivo non può creare un Amministratore unico. Accedi con un account già autorizzato oppure invia una richiesta di accesso per un ruolo aziendale o VIP.
+            </Text>
+            {deviceId ? (
+              <Text style={s.deviceBadge}>ID Dispositivo: {deviceId}</Text>
+            ) : null}
 
-            <Field label="NOME E COGNOME" value={name} onChangeText={setName} placeholder="Il tuo nome" />
-            <Field label="NOME UTENTE" value={username} onChangeText={setUsername} placeholder="Scegli un username" />
-            <Field label="PASSWORD" value={password} onChangeText={setPassword} placeholder="Almeno 8 caratteri" secureTextEntry />
-            <Field label="CONFERMA PASSWORD" value={confirm} onChangeText={setConfirm} placeholder="Ripeti la password" secureTextEntry />
+            <View style={s.tabsRow}>
+              <Pressable
+                style={[s.tabBtn, cloudTab === 'signin' && s.tabBtnActive]}
+                onPress={() => setCloudTab('signin')}
+              >
+                <Text style={[s.tabText, cloudTab === 'signin' && s.tabTextActive]}>ACCEDI</Text>
+              </Pressable>
+              <Pressable
+                style={[s.tabBtn, cloudTab === 'register' && s.tabBtnActive]}
+                onPress={() => setCloudTab('register')}
+              >
+                <Text style={[s.tabText, cloudTab === 'register' && s.tabTextActive]}>RICHIEDI ACCESSO</Text>
+              </Pressable>
+            </View>
 
-            <Button title="CREA AMMINISTRATORE UNICO" onPress={createAdmin} />
+            <Field label="EMAIL" value={cloudEmail} onChangeText={setCloudEmail} placeholder="nome@email.it" />
+            <Field label="PASSWORD" value={cloudPassword} onChangeText={setCloudPassword} placeholder="Almeno 8 caratteri" secureTextEntry />
+
+            {cloudTab === 'register' ? (
+              <>
+                <Field label="NOME E COGNOME" value={reqName} onChangeText={setReqName} placeholder="Il tuo nome" />
+                <Text style={s.label}>RUOLO RICHIESTO (APPROVAZIONE OBBLIGATORIA)</Text>
+                <View style={s.roles}>
+                  {ALLOWED_ROLES.map((r) => (
+                    <Pressable
+                      key={r}
+                      style={[s.roleButton, reqRole === r && s.roleActive]}
+                      onPress={() => setReqRole(r)}
+                    >
+                      <Text style={[s.roleButtonText, reqRole === r && s.roleActiveText]}>{r}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <View style={{ height: 10 }} />
+                <Field label="NOTA (OPZIONALE)" value={reqNote} onChangeText={setReqNote} placeholder="Reparto o riferimento" />
+              </>
+            ) : null}
+
+            <Button
+              title={busy ? 'ATTENDI...' : cloudTab === 'register' ? 'INVIA RICHIESTA DI ACCESSO' : 'VERIFICA E ACCEDI'}
+              onPress={handleCloudAuth}
+            />
+
+            {auth().currentUser ? (
+              <>
+                <Button title="RICONTROLLA STATO APPROVAZIONE" onPress={handleRefreshCloud} secondary />
+                {!auth().currentUser?.emailVerified ? (
+                  <Button
+                    title="REINVIA EMAIL DI VERIFICA"
+                    onPress={() => resendCloudVerification().then(() => Alert.alert('Inviata', 'Controlla la tua casella email.')).catch((e) => Alert.alert('Errore', e.message))}
+                    secondary
+                  />
+                ) : null}
+              </>
+            ) : null}
+
+            {cloudStatus ? (
+              <View style={s.statusBox}>
+                <Text style={s.statusText}>{cloudStatus}</Text>
+              </View>
+            ) : null}
           </>
         ) : (
           <>
@@ -381,7 +443,6 @@ export default function AuthGate({ children }) {
           </>
         )}
 
-
         <Text style={s.footer}>IL MONDO SABRYFOX2025 LINGERIE</Text>
       </ScrollView>
     </View>
@@ -390,7 +451,6 @@ export default function AuthGate({ children }) {
 
 const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#21121B', justifyContent: 'center' },
-  manager: { flex: 1, backgroundColor: '#21121B' },
   container: { padding: 20, paddingTop: 18, paddingBottom: 22 },
   logo: { width: 112, height: 112, alignSelf: 'center', marginBottom: 12 },
   brand: { color: '#E7D4AC', fontSize: 23, textAlign: 'center', letterSpacing: 3, fontFamily: 'Georgia' },
@@ -398,6 +458,12 @@ const s = StyleSheet.create({
   line: { height: 1, backgroundColor: '#C9A66B', width: 65, alignSelf: 'center', marginVertical: 15 },
   heading: { color: '#E7D4AC', fontSize: 18, textAlign: 'center', letterSpacing: 1.2, marginBottom: 9, fontFamily: 'Georgia' },
   description: { color: '#D5C1C6', textAlign: 'center', fontSize: 12, lineHeight: 19, marginBottom: 14 },
+  deviceBadge: { color: '#C9A66B', fontSize: 11, textAlign: 'center', marginBottom: 12, fontWeight: '700' },
+  tabsRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  tabBtn: { flex: 1, borderWidth: 1, borderColor: '#C9A66B', borderRadius: 18, paddingVertical: 9, alignItems: 'center' },
+  tabBtnActive: { backgroundColor: '#C9A66B' },
+  tabText: { color: '#E7D4AC', fontSize: 10, fontWeight: '800' },
+  tabTextActive: { color: '#21121B' },
   field: { marginBottom: 10 },
   label: { color: '#C9A66B', fontSize: 9, letterSpacing: 1.5, marginBottom: 7, fontWeight: '800' },
   input: { backgroundColor: '#FFFDFC', borderRadius: 11, padding: 12, color: '#21121B', fontSize: 13 },
@@ -405,16 +471,13 @@ const s = StyleSheet.create({
   buttonText: { color: '#21121B', fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   secondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#C9A66B' },
   secondaryText: { color: '#E7D4AC' },
+  statusBox: { backgroundColor: '#3D1B2D', borderRadius: 11, padding: 12, marginTop: 12, borderWidth: 1, borderColor: '#C9A66B' },
+  statusText: { color: '#FFFDFC', fontSize: 12, lineHeight: 18, textAlign: 'center' },
   footer: { color: '#AD949B', fontSize: 8, letterSpacing: 1.5, textAlign: 'center', marginTop: 32 },
   sessionBar: { backgroundColor: '#21121B', paddingHorizontal: 13, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 15 },
   sessionName: { color: '#FFFDFC', fontSize: 11, fontWeight: '700' },
   sessionRole: { color: '#C9A66B', fontSize: 8, marginTop: 3, letterSpacing: 1 },
   sessionAction: { color: '#E7D4AC', fontSize: 9, fontWeight: '800', padding: 5 },
-  userCard: { backgroundColor: '#3D1B2D', borderRadius: 12, padding: 13, marginBottom: 9 },
-  userName: { color: '#FFFDFC', fontSize: 13, fontWeight: '700' },
-  userInfo: { color: '#D5C1C6', fontSize: 10, marginTop: 4 },
-  role: { color: '#C9A66B', fontSize: 10, marginTop: 6 },
-  section: { color: '#E7D4AC', fontSize: 12, letterSpacing: 1.2, marginTop: 24, marginBottom: 12 },
   roles: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   roleButton: { borderColor: '#C9A66B', borderWidth: 1, borderRadius: 18, padding: 9 },
   roleActive: { backgroundColor: '#C9A66B' },

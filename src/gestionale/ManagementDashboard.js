@@ -99,6 +99,8 @@ function euro(value) {
   });
 }
 
+const InternalAccountsManager = require('./InternalAccountsManager').default;
+
 export default function ManagementDashboard({ session }) {
   const [ready, setReady] = useState(false);
   const [page, setPage] = useState('Riepilogo');
@@ -138,7 +140,7 @@ export default function ManagementDashboard({ session }) {
   const menu = owner
     ? ['Riepilogo', 'Ordini', 'Magazzino', 'Movimenti', 'Finanze', 'Impostazioni']
     : office
-      ? ['Riepilogo', 'Ordini', 'Magazzino', 'Movimenti', 'Finanze', 'Impostazioni']
+      ? ['Riepilogo', 'Magazzino', 'Movimenti', 'Finanze', 'Impostazioni']
       : ['Riepilogo', 'Magazzino', 'Movimenti', 'Impostazioni'];
 
   const clearLegacyStorage = async () => {
@@ -1026,6 +1028,7 @@ export default function ManagementDashboard({ session }) {
         <Text style={s.copy}>Versione gestionale in sviluppo.</Text>
         <Text style={s.goldText}>© 2025 SabryFox2025 Lingerie. Tutti i diritti riservati.</Text>
       </Card>
+      {owner ? <InternalAccountsManager session={session} /> : null}
       {owner ? (
         <BackupManager
           runStorageExclusive={runStorageExclusive}
