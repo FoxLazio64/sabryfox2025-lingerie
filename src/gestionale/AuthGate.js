@@ -106,6 +106,8 @@ export default function AuthGate({ children }) {
   const [reqRole, setReqRole] = useState(ALLOWED_ROLES[1]);
   const [reqNote, setReqNote] = useState('');
   const [cloudStatus, setCloudStatus] = useState('');
+  const [hasCloudUser, setHasCloudUser] = useState(false);
+  const [isCloudEmailVerified, setIsCloudEmailVerified] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -211,6 +213,8 @@ export default function AuthGate({ children }) {
 
   const verifyCloudAccess = async () => {
     const current = auth().currentUser;
+    setHasCloudUser(!!current);
+    setIsCloudEmailVerified(!!current?.emailVerified);
     if (!current) return;
 
     const email = String(current.email || '').trim().toLowerCase();
@@ -307,6 +311,8 @@ export default function AuthGate({ children }) {
     setCloudPassword('');
     try {
       if (auth().currentUser) await signOutCloudIdentity();
+    setHasCloudUser(false);
+    setIsCloudEmailVerified(false);
     } catch {}
   };
 
@@ -412,10 +418,10 @@ export default function AuthGate({ children }) {
               onPress={handleCloudAuth}
             />
 
-            {auth().currentUser ? (
+            {hasCloudUser ? (
               <>
                 <Button title="RICONTROLLA STATO APPROVAZIONE" onPress={handleRefreshCloud} secondary />
-                {!auth().currentUser?.emailVerified ? (
+                {!isCloudEmailVerified ? (
                   <Button
                     title="REINVIA EMAIL DI VERIFICA"
                     onPress={() => resendCloudVerification().then(() => Alert.alert('Inviata', 'Controlla la tua casella email.')).catch((e) => Alert.alert('Errore', e.message))}
