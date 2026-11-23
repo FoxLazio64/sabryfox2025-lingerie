@@ -1,19 +1,30 @@
-import * as FirebaseAuthMod from '@react-native-firebase/auth';
+import authDefault, * as FirebaseAuthMod from '@react-native-firebase/auth';
 
-function resolveAuth() {
-  const mod = FirebaseAuthMod.default || FirebaseAuthMod;
-  if (typeof mod === 'function') {
-    const inst = mod();
-    if (inst) return { mode: 'namespaced', inst };
+function getAuthInstance() {
+  const candidates = [
+    authDefault,
+    FirebaseAuthMod && FirebaseAuthMod.default,
+    FirebaseAuthMod && typeof FirebaseAuthMod.getAuth === 'function' ? FirebaseAuthMod.getAuth : null,
+  ];
+
+  for (const fn of candidates) {
+    if (typeof fn === 'function') {
+      try {
+        const inst = fn();
+        if (inst && typeof inst === 'object') return inst;
+      } catch {}
+    }
   }
-  if (mod && typeof mod.signInWithEmailAndPassword === 'function') {
-    return { mode: 'namespaced', inst: mod };
+
+  if (authDefault && typeof authDefault === 'object' && typeof authDefault.signInWithEmailAndPassword === 'function') {
+    return authDefault;
   }
-  if (typeof FirebaseAuthMod.getAuth === 'function') {
-    const inst = FirebaseAuthMod.getAuth();
-    if (inst) return { mode: 'modular', inst };
+
+  if (FirebaseAuthMod && typeof FirebaseAuthMod === 'object' && typeof FirebaseAuthMod.signInWithEmailAndPassword === 'function') {
+    return FirebaseAuthMod;
   }
-  throw new Error('Modulo Firebase Auth non inizializzato nella build Android.');
+
+  throw new Error('Servizio di autenticazione Firebase non disponibile su questo dispositivo.');
 }
 
 function normalizeEmail(email) {
@@ -46,7 +57,7 @@ function identityOf(user) {
 
 export function getCurrentCloudUser() {
   try {
-    const { inst } = resolveAuth();
+    const inst = getAuthInstance();
     return inst.currentUser || null;
   } catch {
     return null;
@@ -55,47 +66,59 @@ export function getCurrentCloudUser() {
 
 export async function registerCloudIdentity(email, password) {
   const cleanEmail = validateCredentials(email, password);
-  const { mode, inst } = resolveAuth();
+  const inst = getAuthInstance();
 
-  const credential = mode === 'modular'
-    ? await FirebaseAuthMod.createUserWithEmailAndPassword(inst, cleanEmail, password)
-    : await inst.createUserWithEmailAndPassword(cleanEmail, password);
-
-  if (mode === 'modular' && typeof FirebaseAuthMod.sendEmailVerification === 'function') {
-    await FirebaseAuthMod.sendEmailVerification(credential.user);
-  } else if (typeof credential.user.sendEmailVerification === 'function') {
-    await credential.user.sendEmailVerification();
+  if (typeof inst.createUserWithEmailAndPassword === 'function') {
+    const credential = await inst.createUserWithEmailAndPassword(cleanEmail, password);
+    if (credential && credential.user && typeof credential.user.sendEmailVerification === 'function') {
+      await credential.user.sendEmailVerification();
+    }
+    return identityOf(credential && credential.user);
   }
 
-  return identityOf(credential.user);
+  if (typeof FirebaseAuthMod.createUserWithEmailAndPassword === 'function') {
+    const credential = await FirebaseAuthMod.createUserWithEmailAndPassword(inst, cleanEmail, password);
+    if (credential && credential.user && typeof FirebaseAuthMod.sendEmailVerification === 'function') {
+      await FirebaseAuthMod.sendEmailVerification(credential.user);
+    }
+    return identityOf(credential && credential.user);
+  }
+
+  throw new Error('Metodo di registrazione Firebase non disponibile.');
 }
 
 export async function signInCloudIdentity(email, password) {
   const cleanEmail = validateCredentials(email, password);
-  const { mode, inst } = resolveAuth();
+  const inst = getAuthInstance();
 
-  const credential = mode === 'modular'
-    ? await FirebaseAuthMod.signInWithEmailAndPassword(inst, cleanEmail, password)
-    : await inst.signInWithEmailAndPassword(cleanEmail, password);
+  if (typeof inst.signInWithEmailAndPassword === 'function') {
+    const credential = await inst.signInWithEmailAndPassword(cleanEmail, password);
+    return identityOf(credential && credential.user);
+  }
 
-  return identityOf(credential.user);
+  if (typeof FirebaseAuthMod.signInWithEmailAndPassword === 'function') {
+    const credential = await FirebaseAuthMod.signInWithEmailAndPassword(inst, cleanEmail, password);
+    return identityOf(credential && credential.user);
+  }
+
+  throw new Error('Metodo di accesso Firebase non disponibile.');
 }
 
 export async function refreshCloudIdentity() {
-  const { mode, inst } = resolveAuth();
+  const inst = getAuthInstance();
   const user = inst.currentUser;
   if (!user) return null;
 
-  if (mode === 'modular' && typeof FirebaseAuthMod.reload === 'function') {
-    await FirebaseAuthMod.reload(user);
-  } else if (typeof user.reload === 'function') {
+  if (typeof user.reload === 'function') {
     await user.reload();
+  } else if (typeof FirebaseAuthMod.reload === 'function') {
+    await FirebaseAuthMod.reload(user);
   }
   return identityOf(inst.currentUser);
 }
 
 export async function resendCloudVerification() {
-  const { mode, inst } = resolveAuth();
+  const inst = getAuthInstance();
   const user = inst.currentUser;
 
   if (!user) {
@@ -103,10 +126,10 @@ export async function resendCloudVerification() {
   }
 
   if (!user.emailVerified) {
-    if (mode === 'modular' && typeof FirebaseAuthMod.sendEmailVerification === 'function') {
-      await FirebaseAuthMod.sendEmailVerification(user);
-    } else if (typeof user.sendEmailVerification === 'function') {
+    if (typeof user.sendEmailVerification === 'function') {
       await user.sendEmailVerification();
+    } else if (typeof FirebaseAuthMod.sendEmailVerification === 'function') {
+      await FirebaseAuthMod.sendEmailVerification(user);
     }
   }
 
@@ -114,12 +137,12 @@ export async function resendCloudVerification() {
 }
 
 export async function signOutCloudIdentity() {
-  const { mode, inst } = resolveAuth();
-  if (inst.currentUser) {
-    if (mode === 'modular' && typeof FirebaseAuthMod.signOut === 'function') {
-      await FirebaseAuthMod.signOut(inst);
-    } else if (typeof inst.signOut === 'function') {
+  const inst = getAuthInstance();
+  if (inst && inst.currentUser) {
+    if (typeof inst.signOut === 'function') {
       await inst.signOut();
+    } else if (typeof FirebaseAuthMod.signOut === 'function') {
+      await FirebaseAuthMod.signOut(inst);
     }
   }
 }
