@@ -1,5 +1,6 @@
 import auth from '@react-native-firebase/auth';
-import database from '@react-native-firebase/database';
+import * as FirebaseDbMod from '@react-native-firebase/database';
+const database = () => { const m = FirebaseDbMod.default || FirebaseDbMod; return typeof m === 'function' ? m() : (typeof FirebaseDbMod.getDatabase === 'function' ? FirebaseDbMod.getDatabase() : m); };
 
 const OWNER_EMAIL = 'fabio28164@gmail.com';
 

@@ -1,11 +1,19 @@
-import auth from '@react-native-firebase/auth';
+import * as FirebaseAuthMod from '@react-native-firebase/auth';
 
-function getAuth() {
-  const instance = typeof auth === 'function' ? auth() : auth;
-  if (!instance || typeof instance.signInWithEmailAndPassword !== 'function') {
-    throw new Error('Servizio di autenticazione non pronto. Riavvia l’app.');
+function resolveAuth() {
+  const mod = FirebaseAuthMod.default || FirebaseAuthMod;
+  if (typeof mod === 'function') {
+    const inst = mod();
+    if (inst) return { mode: 'namespaced', inst };
   }
-  return instance;
+  if (mod && typeof mod.signInWithEmailAndPassword === 'function') {
+    return { mode: 'namespaced', inst: mod };
+  }
+  if (typeof FirebaseAuthMod.getAuth === 'function') {
+    const inst = FirebaseAuthMod.getAuth();
+    if (inst) return { mode: 'modular', inst };
+  }
+  throw new Error('Modulo Firebase Auth non inizializzato nella build Android.');
 }
 
 function normalizeEmail(email) {
@@ -36,59 +44,82 @@ function identityOf(user) {
   };
 }
 
+export function getCurrentCloudUser() {
+  try {
+    const { inst } = resolveAuth();
+    return inst.currentUser || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function registerCloudIdentity(email, password) {
   const cleanEmail = validateCredentials(email, password);
-  const a = getAuth();
+  const { mode, inst } = resolveAuth();
 
-  const credential = await a.createUserWithEmailAndPassword(
-    cleanEmail,
-    password
-  );
+  const credential = mode === 'modular'
+    ? await FirebaseAuthMod.createUserWithEmailAndPassword(inst, cleanEmail, password)
+    : await inst.createUserWithEmailAndPassword(cleanEmail, password);
 
-  await credential.user.sendEmailVerification();
+  if (mode === 'modular' && typeof FirebaseAuthMod.sendEmailVerification === 'function') {
+    await FirebaseAuthMod.sendEmailVerification(credential.user);
+  } else if (typeof credential.user.sendEmailVerification === 'function') {
+    await credential.user.sendEmailVerification();
+  }
 
   return identityOf(credential.user);
 }
 
 export async function signInCloudIdentity(email, password) {
   const cleanEmail = validateCredentials(email, password);
-  const a = getAuth();
+  const { mode, inst } = resolveAuth();
 
-  const credential = await a.signInWithEmailAndPassword(
-    cleanEmail,
-    password
-  );
+  const credential = mode === 'modular'
+    ? await FirebaseAuthMod.signInWithEmailAndPassword(inst, cleanEmail, password)
+    : await inst.signInWithEmailAndPassword(cleanEmail, password);
 
   return identityOf(credential.user);
 }
 
 export async function refreshCloudIdentity() {
-  const a = getAuth();
-  const user = a.currentUser;
+  const { mode, inst } = resolveAuth();
+  const user = inst.currentUser;
   if (!user) return null;
 
-  await user.reload();
-  return identityOf(a.currentUser);
+  if (mode === 'modular' && typeof FirebaseAuthMod.reload === 'function') {
+    await FirebaseAuthMod.reload(user);
+  } else if (typeof user.reload === 'function') {
+    await user.reload();
+  }
+  return identityOf(inst.currentUser);
 }
 
 export async function resendCloudVerification() {
-  const a = getAuth();
-  const user = a.currentUser;
+  const { mode, inst } = resolveAuth();
+  const user = inst.currentUser;
 
   if (!user) {
     throw new Error('Nessun account Firebase autenticato.');
   }
 
   if (!user.emailVerified) {
-    await user.sendEmailVerification();
+    if (mode === 'modular' && typeof FirebaseAuthMod.sendEmailVerification === 'function') {
+      await FirebaseAuthMod.sendEmailVerification(user);
+    } else if (typeof user.sendEmailVerification === 'function') {
+      await user.sendEmailVerification();
+    }
   }
 
   return identityOf(user);
 }
 
 export async function signOutCloudIdentity() {
-  const a = getAuth();
-  if (a.currentUser) {
-    await a.signOut();
+  const { mode, inst } = resolveAuth();
+  if (inst.currentUser) {
+    if (mode === 'modular' && typeof FirebaseAuthMod.signOut === 'function') {
+      await FirebaseAuthMod.signOut(inst);
+    } else if (typeof inst.signOut === 'function') {
+      await inst.signOut();
+    }
   }
 }

@@ -6,13 +6,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
-import auth from '@react-native-firebase/auth';
-import database from '@react-native-firebase/database';
+import * as FirebaseDbMod from '@react-native-firebase/database';
 import {
   registerCloudIdentity,
   signInCloudIdentity,
   refreshCloudIdentity,
   resendCloudVerification,
+  getCurrentCloudUser,
   signOutCloudIdentity,
 } from './CloudIdentityService';
 import {
@@ -149,7 +149,7 @@ export default function AuthGate({ children }) {
             await SecureStore.setItemAsync(KEY, JSON.stringify(normalized));
           }
           setUsers(normalized);
-          setMode(owners.length === 1 ? 'login' : 'blocked');
+          setMode('login');
         }
       } catch (error) {
         if (active) setStorageError(true);
@@ -166,13 +166,62 @@ export default function AuthGate({ children }) {
     setUsers(next);
   };
 
+  const createOrResetLocalOwner = async () => {
+    const cleanUser = (loginUsername || 'sabrifox2025').trim().toLowerCase();
+    if (!cleanUser) {
+      return Alert.alert('Nome utente mancante', 'Inserisci il nome utente (es. sabrifox2025).');
+    }
+    if (typeof loginPassword !== 'string' || loginPassword.length < 4) {
+      return Alert.alert('Password troppo corta', 'Inserisci una password di almeno 4 caratteri.');
+    }
+    try {
+      const salt = makeSalt();
+      const passwordHash = await hashPassword(loginPassword, salt);
+      const existing = users.find((u) => u.username === cleanUser);
+      const account = existing
+        ? { ...existing, salt, passwordHash, role: existing.role || 'Amministratore unico' }
+        : {
+            id: 'local-' + Date.now(),
+            name: 'Amministratore Unico',
+            username: cleanUser,
+            role: 'Amministratore unico',
+            isOwner: true,
+            salt,
+            passwordHash,
+          };
+      const nextUsers = existing
+        ? users.map((u) => (u.username === cleanUser ? account : u))
+        : [...users, account];
+      await saveUsers(nextUsers);
+      setSession({
+        id: account.id,
+        name: account.name,
+        username: account.username,
+        role: account.role,
+      });
+      setLoginPassword('');
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare l\'account locale.');
+    }
+  };
+
   const login = async () => {
-    const found = users.find(
-      (u) => u.username === loginUsername.trim().toLowerCase()
-    );
+    const cleanUser = loginUsername.trim().toLowerCase();
+    if (!cleanUser || !loginPassword) {
+      return Alert.alert('Dati mancanti', 'Inserisci nome utente e password.');
+    }
+
+    if (users.length === 0) {
+      return createOrResetLocalOwner();
+    }
+
+    const found = users.find((u) => u.username === cleanUser);
 
     if (!found) {
-      return Alert.alert('Accesso negato', 'Controlla nome utente e password.');
+      return Alert.alert(
+        'Utente non trovato',
+        `L'utente "${cleanUser}" non è ancora salvato su questo tablet. Tocca "SALVA / AGGIORNA ACCESSO LOCALE" qui sotto per registrarlo con questa password.`
+      );
     }
 
     try {
@@ -211,13 +260,25 @@ export default function AuthGate({ children }) {
     }
   };
 
-  const verifyCloudAccess = async () => {
-    const authMod = typeof auth === 'function' ? auth() : auth;
-    const dbMod = typeof database === 'function' ? database() : database;
-    if (!authMod || !dbMod || typeof dbMod.ref !== 'function') {
-      throw new Error('Servizio cloud non disponibile su questo dispositivo.');
+  const getDbHelpers = () => {
+    const m = FirebaseDbMod.default || FirebaseDbMod;
+    const db = typeof m === 'function' ? m() : (typeof FirebaseDbMod.getDatabase === 'function' ? FirebaseDbMod.getDatabase() : m);
+    if (!db) throw new Error('Database cloud non disponibile.');
+    if (typeof db.ref === 'function') {
+      return {
+        onceVal: async (path) => (await db.ref(path).once('value')).val(),
+        setVal: async (path, val) => db.ref(path).set(val),
+      };
     }
-    const current = authMod.currentUser;
+    return {
+      onceVal: async (path) => (await FirebaseDbMod.get(FirebaseDbMod.ref(db, path))).val(),
+      setVal: async (path, val) => FirebaseDbMod.set(FirebaseDbMod.ref(db, path), val),
+    };
+  };
+
+  const verifyCloudAccess = async () => {
+    const { onceVal, setVal } = getDbHelpers();
+    const current = getCurrentCloudUser();
     setHasCloudUser(!!current);
     setIsCloudEmailVerified(!!current?.emailVerified);
     if (!current) return;
@@ -228,13 +289,12 @@ export default function AuthGate({ children }) {
         setCloudStatus('Verifica prima la tua email proprietaria dal link inviato da Firebase, poi premi Ricontrolla.');
         return;
       }
-      const allSnap = await dbMod.ref('ownerDevices').once('value');
-      const allDevices = allSnap.val() || {};
+      const allDevices = (await onceVal('ownerDevices')) || {};
       const approvedEntries = Object.entries(allDevices).filter(([, item]) => item && item.approved === true);
       let isApproved = approvedEntries.some(([key]) => key === deviceId);
 
       if (!isApproved && approvedEntries.length === 0 && deviceId) {
-        await dbMod.ref(`ownerDevices/${deviceId}`).set({
+        await setVal(`ownerDevices/${deviceId}`, {
           deviceId,
           label: 'Tablet Principale',
           platform: 'android',
@@ -330,8 +390,7 @@ export default function AuthGate({ children }) {
     setLoginPassword('');
     setCloudPassword('');
     try {
-      const a = typeof auth === 'function' ? auth() : auth;
-      if (a && a.currentUser) await signOutCloudIdentity();
+      if (getCurrentCloudUser()) await signOutCloudIdentity();
     setHasCloudUser(false);
     setIsCloudEmailVerified(false);
     } catch {}
@@ -478,6 +537,7 @@ export default function AuthGate({ children }) {
             <Field label="PASSWORD" value={loginPassword} onChangeText={setLoginPassword} placeholder="La tua password" secureTextEntry />
 
             <Button title="ACCEDI" onPress={login} />
+            <Button title="SALVA / AGGIORNA ACCESSO LOCALE" onPress={createOrResetLocalOwner} secondary />
             <Button title="ACCESSO CLOUD (EMAIL)" onPress={() => setMode('blocked')} secondary />
           </>
         )}
