@@ -471,7 +471,7 @@ export default function AuthGate({ children }) {
                 style={[s.tabBtn, cloudTab === 'signin' && s.tabBtnActive]}
                 onPress={() => setCloudTab('signin')}
               >
-                <Text style={[s.tabText, cloudTab === 'signin' && s.tabTextActive]}>ACCEDI</Text>
+                <Text style={[s.tabText, cloudTab === 'signin' && s.tabTextActive]}>HO GIÀ UN ACCOUNT</Text>
               </Pressable>
               <Pressable
                 style={[s.tabBtn, cloudTab === 'register' && s.tabBtnActive]}
@@ -536,9 +536,9 @@ export default function AuthGate({ children }) {
             <Field label="NOME UTENTE" value={loginUsername} onChangeText={setLoginUsername} placeholder="Username" />
             <Field label="PASSWORD" value={loginPassword} onChangeText={setLoginPassword} placeholder="La tua password" secureTextEntry />
 
-            <Button title="ACCEDI" onPress={login} />
+            <Button title="ENTRA CON NOME UTENTE" onPress={login} />
             <Button title="SALVA / AGGIORNA ACCESSO LOCALE" onPress={createOrResetLocalOwner} secondary />
-            <Button title="ACCESSO CLOUD (EMAIL)" onPress={() => setMode('blocked')} secondary />
+            <Button title="PASSA A ACCESSO CLOUD (AMMINISTRATORE)" onPress={() => setMode('blocked')} secondary />
           </>
         )}
 
