@@ -6,6 +6,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BackupManager from './BackupManager';
 import OrdersManager from './OrdersManager';
+import { pullGestionaleStateFromCloud, pushGestionaleStateToCloud } from './CloudSyncService';
 
 const C = {
   dark: '#21121B',
@@ -170,7 +171,8 @@ export default function ManagementDashboard({ session }) {
       }
 
       await clearLegacyStorage();
-      return state;
+      const cloudResult = await syncStateWithCloud(state);
+      return cloudResult.state;
     }
 
     // Migrazione: legge i quattro archivi precedenti.
@@ -198,7 +200,51 @@ export default function ManagementDashboard({ session }) {
     // Prima scrive il nuovo archivio; solo dopo elimina le vecchie chiavi.
     await AsyncStorage.setItem(STATE_KEY, JSON.stringify(migrated));
     await clearLegacyStorage();
-    return migrated;
+    const cloudResult = await syncStateWithCloud(migrated);
+    return cloudResult.state;
+  };
+
+
+  const syncStateWithCloud = async (localState, { forcePush = false } = {}) => {
+    try {
+      const remote = await pullGestionaleStateFromCloud();
+      const localHasData =
+        (localState.products?.length || 0) +
+        (localState.movements?.length || 0) +
+        (localState.finance?.length || 0) +
+        (localState.orders?.length || 0) > 0;
+      const remoteHasData = remote
+        ? (remote.products?.length || 0) +
+          (remote.movements?.length || 0) +
+          (remote.finance?.length || 0) +
+          (remote.orders?.length || 0) > 0
+        : false;
+
+      const localTime = Date.parse(localState.updatedAt || 0) || 0;
+      const remoteTime = remote ? (Date.parse(remote.updatedAt || 0) || 0) : 0;
+
+      if (remote && remoteHasData && (!localHasData || remoteTime > localTime)) {
+        const adopted = {
+          version: 1,
+          updatedAt: remote.updatedAt || new Date().toISOString(),
+          products: remote.products,
+          movements: remote.movements,
+          finance: remote.finance,
+          orders: remote.orders,
+        };
+        await AsyncStorage.setItem(STATE_KEY, JSON.stringify(adopted));
+        return { state: adopted, source: "cloud", synced: true };
+      }
+
+      if ((localHasData && (!remote || !remoteHasData || localTime >= remoteTime)) || forcePush) {
+        const pushed = await pushGestionaleStateToCloud(localState);
+        return { state: localState, source: pushed ? "local-pushed" : "local-only", synced: pushed };
+      }
+
+      return { state: localState, source: "local", synced: Boolean(remote) };
+    } catch {
+      return { state: localState, source: "local-offline", synced: false };
+    }
   };
 
   const mutateData = (mutator) => {
@@ -231,6 +277,8 @@ export default function ManagementDashboard({ session }) {
 
       // Una sola scrittura contiene tutti i dati del gestionale.
       await AsyncStorage.setItem(STATE_KEY, JSON.stringify(payload));
+
+      try { await pushGestionaleStateToCloud(payload); } catch {}
 
       // La schermata viene aggiornata solo dopo la scrittura riuscita.
       setProducts(payload.products);
@@ -1015,6 +1063,26 @@ export default function ManagementDashboard({ session }) {
     </>
   );
 
+
+  const handleManualCloudSync = async () => {
+    try {
+      const current = await readPersistedState();
+      const res = await syncStateWithCloud(current, { forcePush: true });
+      setProducts(res.state.products);
+      setMovements(res.state.movements);
+      setFinance(res.state.finance);
+      setOrders(res.state.orders);
+      Alert.alert(
+        "Sincronizzazione cloud",
+        res.synced
+          ? "Dati allineati con il cloud (modalità: " + res.source + ")."
+          : "Dati salvati in locale. Verifica di essere autenticato con l'account proprietario verificato."
+      );
+    } catch (error) {
+      Alert.alert("Sincronizzazione non riuscita", error?.message || "Errore durante la sincronizzazione.");
+    }
+  };
+
   const renderSettings = () => (
     <>
       <Section title="Impostazioni" copy="Configurazione del profilo aziendale." />
@@ -1028,6 +1096,13 @@ export default function ManagementDashboard({ session }) {
         <Text style={s.copy}>Versione gestionale in sviluppo.</Text>
         <Text style={s.goldText}>© 2025 SabryFox2025 Lingerie. Tutti i diritti riservati.</Text>
       </Card>
+      {owner ? (
+        <Card>
+          <Text style={s.cardTitle}>Sincronizzazione Cloud</Text>
+          <Text style={s.copy}>Allinea prodotti, movimenti, finanze e ordini tra tablet e smartphone.</Text>
+          <Button title="SINCRONIZZA ORA CON CLOUD" onPress={handleManualCloudSync} />
+        </Card>
+      ) : null}
       {owner ? <InternalAccountsManager session={session} /> : null}
       {owner ? (
         <BackupManager
