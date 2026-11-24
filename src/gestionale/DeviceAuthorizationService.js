@@ -1,5 +1,5 @@
-import auth from '@react-native-firebase/auth';
-import database from '@react-native-firebase/database';
+import authDefault, * as FirebaseAuthMod from '@react-native-firebase/auth';
+import dbDefault, * as FirebaseDbMod from '@react-native-firebase/database';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
@@ -8,8 +8,72 @@ const OWNER_EMAIL = 'fabio28164@gmail.com';
 const LOCAL_DEVICE_ID_KEY = 'sabryfox_device_id_v1';
 const MAX_OWNER_DEVICES = 2;
 
+function resolveInstance(defaultExport, modNamespace, getterName) {
+  const candidates = [
+    defaultExport,
+    modNamespace && modNamespace.default,
+    modNamespace && typeof modNamespace[getterName] === 'function' ? modNamespace[getterName] : null,
+  ];
+
+  for (const fn of candidates) {
+    if (typeof fn === 'function') {
+      try {
+        const inst = fn();
+        if (inst && typeof inst === 'object') return inst;
+      } catch {}
+    }
+  }
+
+  if (defaultExport && typeof defaultExport === 'object') return defaultExport;
+  if (modNamespace && typeof modNamespace === 'object') return modNamespace;
+  return null;
+}
+
+function getAuthInst() {
+  const inst = resolveInstance(authDefault, FirebaseAuthMod, 'getAuth');
+  if (!inst) {
+    throw new Error('Servizio di autenticazione Firebase non disponibile.');
+  }
+  return inst;
+}
+
+function getDbInst() {
+  const inst = resolveInstance(dbDefault, FirebaseDbMod, 'getDatabase');
+  if (!inst) {
+    throw new Error('Database cloud non disponibile.');
+  }
+  return inst;
+}
+
+async function readOnceVal(path) {
+  const db = getDbInst();
+  if (typeof db.ref === 'function') {
+    const snap = await db.ref(path).once('value');
+    return snap && typeof snap.val === 'function' ? snap.val() : null;
+  }
+  if (typeof FirebaseDbMod.ref === 'function' && typeof FirebaseDbMod.get === 'function') {
+    const snap = await FirebaseDbMod.get(FirebaseDbMod.ref(db, path));
+    return snap && typeof snap.val === 'function' ? snap.val() : null;
+  }
+  throw new Error('Metodo di lettura database non disponibile.');
+}
+
+async function writeVal(path, value) {
+  const db = getDbInst();
+  if (typeof db.ref === 'function') {
+    await db.ref(path).set(value);
+    return;
+  }
+  if (typeof FirebaseDbMod.ref === 'function' && typeof FirebaseDbMod.set === 'function') {
+    await FirebaseDbMod.set(FirebaseDbMod.ref(db, path), value);
+    return;
+  }
+  throw new Error('Metodo di scrittura database non disponibile.');
+}
+
 function requireOwner() {
-  const user = auth().currentUser;
+  const authInst = getAuthInst();
+  const user = authInst.currentUser || null;
 
   if (
     !user ||
@@ -45,8 +109,7 @@ export async function getOrCreateLocalDeviceId() {
 
 export async function listOwnerDevices() {
   requireOwner();
-  const snap = await database().ref('ownerDevices').once('value');
-  const raw = snap.val() || {};
+  const raw = (await readOnceVal('ownerDevices')) || {};
 
   return Object.entries(raw).map(([key, item]) => ({
     key,
@@ -66,9 +129,7 @@ export async function approveOwnerDevice(deviceId, label = '') {
     throw new Error('Identificativo dispositivo non valido.');
   }
 
-  const ref = database().ref('ownerDevices');
-  const snap = await ref.once('value');
-  const raw = snap.val() || {};
+  const raw = (await readOnceVal('ownerDevices')) || {};
 
   const approvedOthers = Object.entries(raw).filter(
     ([key, item]) => key !== cleanId && item?.approved === true
@@ -89,7 +150,7 @@ export async function approveOwnerDevice(deviceId, label = '') {
     updatedAt: new Date().toISOString(),
   };
 
-  await ref.child(cleanId).set(record);
+  await writeVal(`ownerDevices/${cleanId}`, record);
   return record;
 }
 
@@ -101,15 +162,12 @@ export async function revokeOwnerDevice(deviceId) {
     throw new Error('Identificativo dispositivo non valido.');
   }
 
-  const ref = database().ref(`ownerDevices/${cleanId}`);
-  const snap = await ref.once('value');
-
-  if (!snap.exists()) {
+  const current = await readOnceVal(`ownerDevices/${cleanId}`);
+  if (!current || typeof current !== 'object') {
     throw new Error('Dispositivo non trovato nel registro.');
   }
 
-  const current = snap.val() || {};
-  await ref.set({
+  await writeVal(`ownerDevices/${cleanId}`, {
     ...current,
     deviceId: cleanId,
     approved: false,
