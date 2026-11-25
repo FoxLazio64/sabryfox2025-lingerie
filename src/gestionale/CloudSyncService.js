@@ -120,3 +120,75 @@ export async function pushGestionaleStateToCloud(state) {
   await writeVal(`ownerWorkspace/${uid}/gestionaleState`, payload);
   return true;
 }
+async function runTransactionVal(path, updateFn) {
+  const db = getDbInst();
+  if (typeof db.ref === "function") {
+    const res = await db.ref(path).transaction((current) => updateFn(current));
+    return {
+      committed: Boolean(res && res.committed),
+      snapshot: res ? res.snapshot : null,
+    };
+  }
+  if (typeof FirebaseDbMod.ref === "function" && typeof FirebaseDbMod.runTransaction === "function") {
+    const res = await FirebaseDbMod.runTransaction(
+      FirebaseDbMod.ref(db, path),
+      (current) => updateFn(current)
+    );
+    return {
+      committed: Boolean(res && res.committed),
+      snapshot: res ? res.snapshot : null,
+    };
+  }
+  throw new Error("Metodo di transazione database non disponibile.");
+}
+
+export async function mutateGestionaleStateOnCloud(mutator, fallbackState = null) {
+  const uid = getVerifiedOwnerUid();
+  if (!uid) {
+    return { committed: false, state: null, reason: "unauthenticated" };
+  }
+
+  const path = `ownerWorkspace/${uid}/gestionaleState`;
+  let abortReason = null;
+
+  const res = await runTransactionVal(path, (currentRemote) => {
+    abortReason = null;
+    const base = isValidGestionaleState(currentRemote)
+      ? currentRemote
+      : (isValidGestionaleState(fallbackState) ? fallbackState : null);
+
+    if (!base) {
+      return currentRemote;
+    }
+
+    const next = mutator(base);
+    if (next === undefined) {
+      abortReason = "aborted";
+      return undefined;
+    }
+    if (!isValidGestionaleState(next)) {
+      abortReason = "invalid_state";
+      return undefined;
+    }
+
+    return {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      products: next.products,
+      movements: next.movements,
+      finance: next.finance,
+      orders: next.orders,
+    };
+  });
+
+  if (!res.committed) {
+    return { committed: false, state: null, reason: abortReason || "not_committed" };
+  }
+
+  const val = res.snapshot && typeof res.snapshot.val === "function" ? res.snapshot.val() : null;
+  return {
+    committed: true,
+    state: isValidGestionaleState(val) ? val : null,
+    reason: null,
+  };
+}

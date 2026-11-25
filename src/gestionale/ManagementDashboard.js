@@ -6,7 +6,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BackupManager from './BackupManager';
 import OrdersManager from './OrdersManager';
-import { pullGestionaleStateFromCloud, pushGestionaleStateToCloud } from './CloudSyncService';
+import { mutateGestionaleStateOnCloud, pullGestionaleStateFromCloud, pushGestionaleStateToCloud } from './CloudSyncService';
 
 const C = {
   dark: '#21121B',
@@ -254,31 +254,64 @@ export default function ManagementDashboard({ session }) {
       }
 
       const current = await readPersistedState();
-      const next = mutator(current);
+      let payload = null;
+      let cloudTxSucceeded = false;
 
-      if (
-        !next ||
-        !Array.isArray(next.products) ||
-        !Array.isArray(next.movements) ||
-        !Array.isArray(next.finance) ||
-        !Array.isArray(next.orders)
-      ) {
-        throw new Error('La modifica non ha prodotto un archivio valido.');
+      try {
+        const txRes = await mutateGestionaleStateOnCloud((remoteBase) => {
+          const updated = mutator(remoteBase);
+          if (updated === undefined) return undefined;
+          if (
+            !updated ||
+            !Array.isArray(updated.products) ||
+            !Array.isArray(updated.movements) ||
+            !Array.isArray(updated.finance) ||
+            !Array.isArray(updated.orders)
+          ) {
+            throw new Error('La modifica non ha prodotto un archivio valido.');
+          }
+          return updated;
+        }, current);
+
+        if (txRes && txRes.committed && txRes.state) {
+          payload = txRes.state;
+          cloudTxSucceeded = true;
+        } else if (txRes && txRes.reason === "aborted") {
+          throw new Error('Operazione annullata durante la verifica dei dati.');
+        }
+      } catch (err) {
+        if (err && err.message === 'La modifica non ha prodotto un archivio valido.') throw err;
+        if (err && err.message === 'Operazione annullata durante la verifica dei dati.') throw err;
       }
 
-      const payload = {
-        version: 1,
-        updatedAt: new Date().toISOString(),
-        products: next.products,
-        movements: next.movements,
-        finance: next.finance,
-        orders: next.orders,
-      };
+      if (!payload) {
+        const next = mutator(current);
+        if (
+          !next ||
+          !Array.isArray(next.products) ||
+          !Array.isArray(next.movements) ||
+          !Array.isArray(next.finance) ||
+          !Array.isArray(next.orders)
+        ) {
+          throw new Error('La modifica non ha prodotto un archivio valido.');
+        }
+
+        payload = {
+          version: 1,
+          updatedAt: new Date().toISOString(),
+          products: next.products,
+          movements: next.movements,
+          finance: next.finance,
+          orders: next.orders,
+        };
+      }
 
       // Una sola scrittura contiene tutti i dati del gestionale.
       await AsyncStorage.setItem(STATE_KEY, JSON.stringify(payload));
 
-      try { await pushGestionaleStateToCloud(payload); } catch {}
+      if (!cloudTxSucceeded) {
+        try { await pushGestionaleStateToCloud(payload); } catch {}
+      }
 
       // La schermata viene aggiornata solo dopo la scrittura riuscita.
       setProducts(payload.products);
