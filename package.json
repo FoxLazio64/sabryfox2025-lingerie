@@ -1,6 +1,6 @@
 {
   "name": "sabryfox2025-lingerie",
-  "version": "1.0.14",
+  "version": "1.0.17",
   "private": true,
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
