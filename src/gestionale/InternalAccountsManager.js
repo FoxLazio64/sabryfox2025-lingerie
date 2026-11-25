@@ -346,10 +346,10 @@ export default function InternalAccountsManager({ session }) {
               <Pressable onPress={() => handleRevokeDevice(d.deviceId)} style={{ backgroundColor: colors.red, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
                 <Text style={{ color: colors.light, fontSize: 12, fontWeight: 'bold' }}>REVOCA</Text>
               </Pressable>
+            )}
             <Pressable onPress={() => handleDeleteDevice(d)} style={{ backgroundColor: '#6E1F28', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
               <Text style={{ color: colors.light, fontSize: 12, fontWeight: 'bold' }}>ELIMINA</Text>
             </Pressable>
-            )}
           </View>
         </View>
       ))}
