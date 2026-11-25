@@ -107,6 +107,14 @@ export async function getOrCreateLocalDeviceId() {
   return generated;
 }
 
+export async function removeOwnerDevice(targetId) {
+  requireOwner();
+  const cleanId = sanitizeKey(targetId);
+  if (!cleanId) throw new Error('ID dispositivo non valido.');
+  await writeVal(`ownerDevices/${cleanId}`, null);
+  return cleanId;
+}
+
 export async function listOwnerDevices() {
   requireOwner();
   const raw = (await readOnceVal('ownerDevices')) || {};

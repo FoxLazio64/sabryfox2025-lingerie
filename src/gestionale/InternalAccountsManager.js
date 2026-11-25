@@ -12,6 +12,7 @@ import {
   listOwnerDevices,
   approveOwnerDevice,
   revokeOwnerDevice,
+  removeOwnerDevice,
 } from './DeviceAuthorizationService';
 
 const KEY = 'sabryfox_accounts_v1';
@@ -117,6 +118,39 @@ export default function InternalAccountsManager({ session }) {
     } catch (e) {
       Alert.alert('Errore', e.message || 'Impossibile revocare il dispositivo.');
     }
+  };
+  const handleDeleteDevice = (devItem) => {
+    const targetId = devItem?.deviceId || devItem?.key;
+    if (!targetId) return;
+    Alert.alert(
+      'Eliminare dispositivo?',
+      `${devItem?.label || 'Dispositivo'} (${targetId})\nVerrà rimosso definitivamente dall’elenco cloud.`,
+      [
+        { text: 'ANNULLA', style: 'cancel' },
+        { text: 'ELIMINA', style: 'destructive', onPress: async () => {
+          try { await removeOwnerDevice(targetId); await loadCloudApprovals(); Alert.alert('Dispositivo eliminato', 'Il dispositivo è stato rimosso.'); }
+          catch (e) { Alert.alert('Errore', e.message || 'Impossibile eliminare il dispositivo.'); }
+        }},
+      ]
+    );
+  };
+
+  const handleDeleteAccount = (account) => {
+    if (!owner || !account?.id) return;
+    if (account.id === session?.id || account.role === 'Amministratore unico' || account.isOwner) {
+      return Alert.alert('Operazione non consentita', 'Non puoi eliminare l’account proprietario attivo.');
+    }
+    Alert.alert(
+      'Eliminare account interno?',
+      `${account.name} (@${account.username} · ${account.role})\nL’account verrà rimosso da questo dispositivo.`,
+      [
+        { text: 'ANNULLA', style: 'cancel' },
+        { text: 'ELIMINA', style: 'destructive', onPress: async () => {
+          try { const raw = await SecureStore.getItemAsync(KEY); const current = raw ? JSON.parse(raw) : []; if (!Array.isArray(current)) throw new Error('Archivio account non valido.'); const next = current.filter((u) => u.id !== account.id); await SecureStore.setItemAsync(KEY, JSON.stringify(next)); setAccounts(next); Alert.alert('Account eliminato', 'L’account interno è stato rimosso.'); }
+          catch (e) { Alert.alert('Errore', e.message || 'Impossibile eliminare l’account.'); }
+        }},
+      ]
+    );
   };
 
   const handleApproveRequest = async (reqItem) => {
@@ -312,6 +346,9 @@ export default function InternalAccountsManager({ session }) {
               <Pressable onPress={() => handleRevokeDevice(d.deviceId)} style={{ backgroundColor: colors.red, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
                 <Text style={{ color: colors.light, fontSize: 12, fontWeight: 'bold' }}>REVOCA</Text>
               </Pressable>
+            <Pressable onPress={() => handleDeleteDevice(d)} style={{ backgroundColor: '#6E1F28', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
+              <Text style={{ color: colors.light, fontSize: 12, fontWeight: 'bold' }}>ELIMINA</Text>
+            </Pressable>
             )}
           </View>
         </View>
@@ -409,6 +446,13 @@ export default function InternalAccountsManager({ session }) {
           <Text style={{ color: colors.muted, fontSize: 13 }}>
             @{account.username} · {account.role}
           </Text>
+            {account.id !== session?.id && account.role !== 'Amministratore unico' && !account.isOwner ? (
+              <View style={{ flexDirection: 'row', marginTop: 6 }}>
+                <Pressable onPress={() => handleDeleteAccount(account)} style={{ backgroundColor: colors.red, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
+                  <Text style={{ color: colors.light, fontSize: 12, fontWeight: 'bold' }}>ELIMINA</Text>
+                </Pressable>
+              </View>
+            ) : null}
         </View>
       ))}
     </View>

@@ -524,6 +524,28 @@ export default function ManagementDashboard({ session }) {
     }
   };
 
+  const deleteProduct = async (item) => {
+    if (!owner || !item?.id) return;
+    try {
+      await mutateData((current) => ({ ...current, products: current.products.filter((x) => String(x.id) !== String(item.id)) }));
+      Alert.alert('Articolo eliminato', `${item.name || item.code} è stato rimosso dal magazzino.`);
+    } catch (e) { Alert.alert('Eliminazione non riuscita', e?.message || 'Non è stato possibile eliminare l’articolo.'); }
+  };
+  const deleteMovement = async (item) => {
+    if (!owner || !item?.id) return;
+    try {
+      await mutateData((current) => ({ ...current, movements: current.movements.filter((x) => String(x.id) !== String(item.id)) }));
+      Alert.alert('Movimento eliminato', 'Il movimento è stato rimosso dallo storico.');
+    } catch (e) { Alert.alert('Eliminazione non riuscita', e?.message || 'Non è stato possibile eliminare il movimento.'); }
+  };
+  const deleteFinance = async (item) => {
+    if (!canManageFinance || !item?.id) return;
+    try {
+      await mutateData((current) => ({ ...current, finance: current.finance.filter((x) => String(x.id) !== String(item.id)) }));
+      Alert.alert('Registrazione eliminata', 'Il movimento finanziario è stato rimosso.');
+    } catch (e) { Alert.alert('Eliminazione non riuscita', e?.message || 'Non è stato possibile eliminare la registrazione.'); }
+  };
+
   const addFinance = async () => {
     if (!canManageFinance) {
       return Alert.alert('Accesso negato', 'Non hai i permessi per registrare operazioni finanziarie.');
@@ -977,6 +999,14 @@ export default function ManagementDashboard({ session }) {
               );
             }} />
           )}
+          {owner && (
+            <Button title="ELIMINA ARTICOLO" danger onPress={() => {
+              Alert.alert('Confermare eliminazione?', `${item.name} (${item.code})`, [
+                { text: 'ANNULLA', style: 'cancel' },
+                { text: 'ELIMINA', style: 'destructive', onPress: () => deleteProduct(item) },
+              ]);
+            }} />
+          )}
         </Card>
       ))}
     </>
@@ -1016,6 +1046,14 @@ export default function ManagementDashboard({ session }) {
           <Text style={s.goldText}>{item.type} · {item.productCode}</Text>
           <Text style={s.copy}>{item.reason} · {item.user}</Text>
           <Text style={s.date}>{new Date(item.createdAt).toLocaleString('it-IT')}</Text>
+          {owner && (
+            <Button title="ELIMINA MOVIMENTO" danger secondary onPress={() => {
+              Alert.alert('Confermare eliminazione?', `${item.productName} · ${item.type} (${item.quantity} pz)`, [
+                { text: 'ANNULLA', style: 'cancel' },
+                { text: 'ELIMINA', style: 'destructive', onPress: () => deleteMovement(item) },
+              ]);
+            }} />
+          )}
         </Card>
       ))}
     </>
@@ -1058,6 +1096,14 @@ export default function ManagementDashboard({ session }) {
           </View>
           <Text style={s.copy}>{item.type} · {item.user}</Text>
           <Text style={s.date}>{new Date(item.createdAt).toLocaleString('it-IT')}</Text>
+          {canManageFinance && (
+            <Button title="ELIMINA REGISTRAZIONE" danger secondary onPress={() => {
+              Alert.alert('Confermare eliminazione?', `${item.note} (${euro(item.amount)})`, [
+                { text: 'ANNULLA', style: 'cancel' },
+                { text: 'ELIMINA', style: 'destructive', onPress: () => deleteFinance(item) },
+              ]);
+            }} />
+          )}
         </Card>
       ))}
     </>
