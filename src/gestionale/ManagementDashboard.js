@@ -7,6 +7,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import BackupManager from './BackupManager';
 import OrdersManager from './OrdersManager';
 import { mutateGestionaleStateOnCloud, pullGestionaleStateFromCloud, pushGestionaleStateToCloud } from './CloudSyncService';
+import {
+  confirmVisitorRequestAtomic,
+  fetchPendingVisitorRequests,
+  setVisitorRequestStatus,
+  syncPublicCatalogToCloud,
+} from './CatalogRequestsService';
+import { buildDemoLingerieProducts } from './DemoLingerieCatalog';
 
 const C = {
   dark: '#21121B',
@@ -324,6 +331,150 @@ export default function ManagementDashboard({ session }) {
 
     mutationQueue.current = task.catch(() => undefined);
     return task;
+  };
+
+  const [visitorRequests, setVisitorRequests] = useState([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+  const [busyRequestId, setBusyRequestId] = useState(null);
+  const [syncingCatalog, setSyncingCatalog] = useState(false);
+
+  const refreshVisitorRequests = async () => {
+    if (!owner) return;
+    setLoadingRequests(true);
+    try {
+      const pending = await fetchPendingVisitorRequests();
+      setVisitorRequests(Array.isArray(pending) ? pending : []);
+    } catch {
+      setVisitorRequests([]);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  const handleLoadDemoCatalog = async () => {
+    if (!owner) return;
+    setSyncingCatalog(true);
+    try {
+      const demoItems = buildDemoLingerieProducts();
+      let addedCount = 0;
+      let latestProducts = products;
+
+      const updatedState = await mutateData((current) => {
+        const existingIds = new Set((current.products || []).map((p) => String(p.id)));
+        const existingCodes = new Set(
+          (current.products || []).map((p) => String(p.code || '').trim().toUpperCase())
+        );
+
+        const toAdd = demoItems.filter(
+          (d) =>
+            !existingIds.has(String(d.id)) &&
+            !existingCodes.has(String(d.code || '').trim().toUpperCase())
+        );
+        addedCount = toAdd.length;
+        const nextProducts = [...(current.products || []), ...toAdd];
+        latestProducts = nextProducts;
+        return {
+          ...current,
+          products: nextProducts,
+        };
+      });
+
+      const pool = updatedState?.products || latestProducts;
+      await syncPublicCatalogToCloud(pool);
+
+      Alert.alert(
+        'Catalogo demo pronto',
+        addedCount > 0
+          ? `Aggiunti ${addedCount} capi dimostrativi e sincronizzata la vetrina pubblica.`
+          : 'I capi dimostrativi erano già presenti. Vetrina pubblica riallineata.'
+      );
+    } catch (e) {
+      Alert.alert('Caricamento demo non riuscito', e?.message || 'Impossibile caricare il catalogo dimostrativo.');
+    } finally {
+      setSyncingCatalog(false);
+    }
+  };
+
+  const handleSyncPublicCatalog = async (overrideProducts = null) => {
+    if (!owner) return;
+    setSyncingCatalog(true);
+    try {
+      const targetProducts = Array.isArray(overrideProducts) ? overrideProducts : products;
+      const res = await syncPublicCatalogToCloud(targetProducts);
+      if (!res?.ok) {
+        Alert.alert('Sincronizzazione non riuscita', 'Verifica che l’account proprietario sia autenticato.');
+        return;
+      }
+      Alert.alert('Vetrina sincronizzata', `Pubblicati ${res.count} articoli disponibili su publicCatalog.`);
+    } catch (e) {
+      Alert.alert('Errore sincronizzazione', e?.message || 'Impossibile aggiornare publicCatalog.');
+    } finally {
+      setSyncingCatalog(false);
+    }
+  };
+
+  const handleConfirmVisitorRequest = async (reqItem) => {
+    if (!owner || !reqItem?.id) return;
+    setBusyRequestId(reqItem.id);
+    try {
+      const res = await confirmVisitorRequestAtomic(reqItem.id, (mutator) => mutateData(mutator));
+      if (!res?.ok) {
+        const reasonMap = {
+          insufficient_stock: 'Giacenza insufficiente per confermare la richiesta.',
+          product_not_found: 'Uno degli articoli richiesti non è presente in magazzino.',
+          product_archived: 'Uno degli articoli richiesti risulta archiviato.',
+          already_processed: 'Questa richiesta è già stata elaborata.',
+        };
+        Alert.alert(
+          'Conferma non riuscita',
+          reasonMap[res?.reason] || 'Impossibile confermare la richiesta in modo atomico.'
+        );
+        await refreshVisitorRequests();
+        return;
+      }
+
+      if (Array.isArray(res.products)) {
+        setProducts(res.products);
+        try {
+          const persisted = await readPersistedState();
+          if (persisted) {
+            await AsyncStorage.setItem(
+              STATE_KEY,
+              JSON.stringify({
+                ...persisted,
+                updatedAt: new Date().toISOString(),
+                products: res.products,
+              })
+            );
+          }
+        } catch {}
+      }
+
+      await refreshVisitorRequests();
+      Alert.alert('Richiesta confermata', 'Giacenza scalata e catalogo pubblico aggiornato.');
+    } catch (e) {
+      Alert.alert('Errore conferma', e?.message || 'Errore durante la conferma della richiesta.');
+    } finally {
+      setBusyRequestId(null);
+    }
+  };
+
+  const handleCancelVisitorRequest = async (reqItem) => {
+    if (!owner || !reqItem?.id) return;
+    setBusyRequestId(reqItem.id);
+    try {
+      const res = await setVisitorRequestStatus(reqItem.id, 'cancelled');
+      if (!res?.ok) {
+        Alert.alert('Annullamento non riuscito', 'Impossibile aggiornare lo stato della richiesta.');
+        return;
+      }
+      await refreshVisitorRequests();
+      Alert.alert('Richiesta annullata', 'La richiesta visitatore è stata contrassegnata come annullata.');
+    } catch (e) {
+      Alert.alert('Errore annullamento', e?.message || 'Errore durante l’annullamento.');
+    } finally {
+      setBusyRequestId(null);
+    }
   };
 
   useEffect(() => {
@@ -1254,6 +1405,71 @@ export default function ManagementDashboard({ session }) {
       <ScrollView style={s.content} contentContainerStyle={s.contentInner}
         keyboardShouldPersistTaps="handled">
         {content}
+        {owner ? (
+          <View style={s.section}>
+            <Text style={s.title}>Vetrina Pubblica & Richieste</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+              <Pressable
+                style={[s.button, syncingCatalog && { opacity: 0.6 }]}
+                disabled={syncingCatalog}
+                onPress={handleLoadDemoCatalog}>
+                <Text style={s.buttonText}>
+                  {syncingCatalog ? 'Attendere...' : 'Carica Catalogo Demo'}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[s.button, syncingCatalog && { opacity: 0.6 }]}
+                disabled={syncingCatalog}
+                onPress={() => handleSyncPublicCatalog()}>
+                <Text style={s.buttonText}>Sincronizza Vetrina</Text>
+              </Pressable>
+              <Pressable
+                style={[s.button, loadingRequests && { opacity: 0.6 }]}
+                disabled={loadingRequests}
+                onPress={refreshVisitorRequests}>
+                <Text style={s.buttonText}>
+                  {loadingRequests ? 'Caricamento...' : `Richieste (${visitorRequests.length})`}
+                </Text>
+              </Pressable>
+            </View>
+
+            {visitorRequests.length === 0 ? (
+              <Text style={s.mutedText}>Nessuna richiesta in attesa.</Text>
+            ) : (
+              visitorRequests.map((req) => {
+                const isBusy = busyRequestId === req.id;
+                const itemsList = Array.isArray(req.items) ? req.items : [];
+                return (
+                  <View key={req.id} style={[s.card, { marginBottom: 8 }]}>
+                    <Text style={s.cardTitle}>Richiesta #{String(req.id).slice(-6)}</Text>
+                    {req.contactNote ? (
+                      <Text style={s.mutedText}>Nota: {String(req.contactNote)}</Text>
+                    ) : null}
+                    {itemsList.map((it, idx) => (
+                      <Text key={`${req.id}-${idx}`} style={s.mutedText}>
+                        • {it.name || it.code || it.productId} ({it.size || '-'} / {it.color || '-'}) x{it.qty}
+                      </Text>
+                    ))}
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                      <Pressable
+                        style={[s.button, isBusy && { opacity: 0.6 }]}
+                        disabled={isBusy}
+                        onPress={() => handleConfirmVisitorRequest(req)}>
+                        <Text style={s.buttonText}>{isBusy ? 'In corso...' : 'Conferma'}</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[s.button, { backgroundColor: C.red }, isBusy && { opacity: 0.6 }]}
+                        disabled={isBusy}
+                        onPress={() => handleCancelVisitorRequest(req)}>
+                        <Text style={s.buttonText}>Annulla</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        ) : null}
         <View style={s.footer}>
           <Text style={s.footerText}>© 2025 SabryFox2025 Lingerie. Tutti i diritti riservati.</Text>
         </View>

@@ -5,6 +5,8 @@ import database from '@react-native-firebase/database';
 
 import AuthGate from './src/gestionale/AuthGate';
 import ManagementDashboard from './src/gestionale/ManagementDashboard';
+import PublicLingerieStorefront from './src/vetrina/PublicLingerieStorefront';
+import { Pressable } from 'react-native';
 
 function VipCatalogView({ session }) {
   const [items, setItems] = useState([]);
@@ -62,12 +64,38 @@ const vipStyles = StyleSheet.create({
 });
 
 export default function App() {
+  const [showPublicStorefront, setShowPublicStorefront] = useState(false);
+
+  if (showPublicStorefront) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar barStyle="light-content" backgroundColor="#21121B" />
+        <PublicLingerieStorefront onExitStorefront={() => setShowPublicStorefront(false)} />
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <StatusBar
         barStyle="light-content"
         backgroundColor="#21121B"
       />
+      <Pressable
+        onPress={() => setShowPublicStorefront(true)}
+        style={{
+          backgroundColor: '#3D1B2D',
+          paddingVertical: 8,
+          paddingHorizontal: 14,
+          borderBottomWidth: 1,
+          borderBottomColor: '#C9A66B',
+          alignItems: 'center',
+        }}
+      >
+        <Text style={{ color: '#E7D4AC', fontSize: 12, fontWeight: '800', letterSpacing: 1 }}>
+          APRI VETRINA PUBBLICA (18+)
+        </Text>
+      </Pressable>
       <AuthGate>
         {(session) => {
           if (!session) return null;
