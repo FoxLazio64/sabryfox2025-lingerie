@@ -20,9 +20,16 @@ function normalizeProducts(raw, sourceLabel) {
       category: String(item.category || 'Completi'),
       description: String(item.description || ''),
       price: item.price === null || item.price === undefined || item.price === '' ? null : Number(item.price),
-      sizes: Array.isArray(item.sizes) && item.sizes.length > 0 ? item.sizes.filter(Boolean) : (item.size ? [String(item.size)] : ["Unica"]),
-      color: String(item.color || ''),
-      imageUrl: String(item.imageUrl || item.image || ''),
+      size: String(item.size || (Array.isArray(item.sizes) && item.sizes[0]) || "M"),
+      sizes: Array.isArray(item.sizes) && item.sizes.length > 0 ? item.sizes.filter(Boolean) : (item.size ? [String(item.size)] : ["XS", "S", "M", "L", "XL"]),
+      color: String(item.color || (Array.isArray(item.colors) && item.colors[0]) || ""),
+      colors: Array.isArray(item.colors) && item.colors.length > 0 ? item.colors.filter(Boolean) : (item.color ? [String(item.color)] : ["Nero", "Bianco", "Rosso", "Champagne"]),
+      models: Array.isArray(item.models) && item.models.length > 0 ? item.models.filter(Boolean) : ["Classico", "Pizzo", "Sexy Cut"],
+      measurements: item.measurements && typeof item.measurements === "object" ? item.measurements : null,
+      pricesByVariant: item.pricesByVariant && typeof item.pricesByVariant === "object" ? item.pricesByVariant : null,
+      thumbnailUrl: String(item.thumbnailUrl || item.imageUrl || item.fullImageUrl || item.image || ""),
+      fullImageUrl: String(item.fullImageUrl || item.imageUrl || item.image || ""),
+      imageUrl: String(item.imageUrl || item.image || item.thumbnailUrl || ""),
       sourceCatalog: sourceLabel,
     }));
 }
@@ -52,12 +59,12 @@ export async function fetchShopCatalog({ includeVip = false } = {}) {
     } catch (_) {}
   }
 
-  if (combined.length === 0 && Array.isArray(LOCAL_CATALOG) && LOCAL_CATALOG.length > 0) {
-    addItems(normalizeProducts(LOCAL_CATALOG, 'local'));
-  }
-
   if (combined.length === 0 && Array.isArray(publicEcommerceCatalog?.items) && publicEcommerceCatalog.items.length > 0) {
     addItems(normalizeProducts(publicEcommerceCatalog.items, 'public'));
+  }
+
+  if (combined.length === 0 && Array.isArray(LOCAL_CATALOG) && LOCAL_CATALOG.length > 0) {
+    addItems(normalizeProducts(LOCAL_CATALOG, 'local'));
   }
 
   return combined;

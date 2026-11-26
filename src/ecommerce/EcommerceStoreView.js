@@ -12,6 +12,8 @@ import {
   Modal,
 } from 'react-native';
 import { CATEGORIES } from '../catalog';
+import FullImagePreview from '../FullImagePreview';
+import { loadCatalogPage } from '../mediaCacheService';
 import { BRAND } from '../config';
 import {
   fetchMyCustomerOrders,
@@ -58,6 +60,9 @@ export default function EcommerceStoreView({
   const [selectedCategory, setSelectedCategory] = useState('Tutti');
   const [selectedSizes, setSelectedSizes] = useState({});
   const [previewItem, setPreviewItem] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(24);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const [brokenImages, setBrokenImages] = useState({});
   const [cart, setCart] = useState([]);
 
@@ -293,30 +298,33 @@ export default function EcommerceStoreView({
                 </Text>
               </View>
             ) : (
-              filteredProducts.map((item) => {
+              filteredProducts.slice(0, visibleCount).map((item) => {
                 const activeSize =
                   selectedSizes[item.id] ||
                   (Array.isArray(item.sizes) && item.sizes.length > 0 ? item.sizes[0] : '');
+                const thumbUri = item.thumbnailUrl || item.imageUrl || item.fullImageUrl || '';
 
                 return (
                   <View key={item.id} style={s.card}>
                     <Pressable
                       onPress={() => setPreviewItem(item)}
                       accessibilityRole="button"
-                      accessibilityLabel={`Ingrandisci foto di ${item.name}`}
+                      accessibilityLabel={`Apri immagine reale di ${item.name}`}
                     >
-                      <Image
-                        source={
-                          item.imageUrl && !brokenImages[item.id]
-                            ? { uri: item.imageUrl }
-                            : require('../../assets/logo.jpg')
-                        }
-                        style={s.productImg}
-                        resizeMode={item.imageUrl && !brokenImages[item.id] ? 'cover' : 'contain'}
-                        onError={() =>
-                          setBrokenImages((prev) => ({ ...prev, [item.id]: true }))
-                        }
-                      />
+                      {thumbUri && !brokenImages[item.id] ? (
+                        <Image
+                          source={{ uri: thumbUri }}
+                          style={s.productImg}
+                          resizeMode="cover"
+                          onError={() =>
+                            setBrokenImages((prev) => ({ ...prev, [item.id]: true }))
+                          }
+                        />
+                      ) : (
+                        <View style={[s.productImg, { justifyContent: 'center', alignItems: 'center' }]}>
+                          <Text style={s.metaText}>Tocca per scaricare foto reale</Text>
+                        </View>
+                      )}
                     </Pressable>
                     <View style={s.cardHeader}>
                       <Text style={s.cardCategory}>{item.category}</Text>
@@ -357,6 +365,36 @@ export default function EcommerceStoreView({
                 );
               })
             )}
+
+            {!loading && filteredProducts.length > 0 ? (
+              <View style={{ marginTop: 12, marginBottom: 20, alignItems: 'center' }}>
+                <Text style={s.metaText}>
+                  Mostrati {Math.min(visibleCount, filteredProducts.length)} di {filteredProducts.length} capi
+                </Text>
+                {visibleCount < filteredProducts.length ? (
+                  <Pressable
+                    style={[s.primaryBtn, { marginTop: 8 }]}
+                    disabled={loadingMore}
+                    onPress={async () => {
+                      setLoadingMore(true);
+                      const nextPage = Math.floor(visibleCount / 24) + 1;
+                      const res = await loadCatalogPage(filteredProducts, { page: nextPage, pageSize: 24 });
+                      setIsOnline(res.isOnline);
+                      setVisibleCount((prev) => Math.min(filteredProducts.length, prev + 24));
+                      setLoadingMore(false);
+                    }}
+                  >
+                    <Text style={s.primaryBtnText}>
+                      {loadingMore
+                        ? 'Caricamento blocco...'
+                        : isOnline
+                          ? 'Carica altri 24 capi (online)'
+                          : 'Carica altri 24 capi (offline)'}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
           </View>
         )}
 
@@ -549,24 +587,7 @@ export default function EcommerceStoreView({
         <View style={s.modalBackdrop}>
           <View style={s.modalCard}>
             {previewItem ? (
-              <>
-                <Text style={s.modalTitle}>{previewItem.name}</Text>
-                <Text style={s.modalMeta}>
-                  {previewItem.brand ? `${previewItem.brand} · ` : ''}{previewItem.category} · {formatPrice(previewItem.price)}
-                </Text>
-                <Image
-                  source={
-                    previewItem.imageUrl && !brokenImages[previewItem.id]
-                      ? { uri: previewItem.imageUrl }
-                      : require('../../assets/logo.jpg')
-                  }
-                  style={s.modalImg}
-                  resizeMode="contain"
-                  onError={() =>
-                    setBrokenImages((prev) => ({ ...prev, [previewItem.id]: true }))
-                  }
-                />
-              </>
+              <FullImagePreview item={previewItem} onClose={() => setPreviewItem(null)} />
             ) : null}
             <Pressable style={s.modalCloseBtn} onPress={() => setPreviewItem(null)}>
               <Text style={s.modalCloseText}>Chiudi anteprima</Text>
