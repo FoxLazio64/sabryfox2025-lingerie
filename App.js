@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StatusBar, View, Pressable, Text, StyleSheet } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 
 import AuthGate from './src/gestionale/AuthGate';
@@ -10,7 +10,8 @@ import EcommerceStoreView from './src/ecommerce/EcommerceStoreView';
 
 const STAFF_ROLES = ['Amministratore unico', 'Amministrazione e Finanze', 'Dipendenti'];
 
-export default function App() {
+function AppShell() {
+  const insets = useSafeAreaInsets();
   const [showPublicStorefront, setShowPublicStorefront] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [session, setSession] = useState(null);
@@ -22,21 +23,21 @@ export default function App() {
 
   if (showPublicStorefront) {
     return (
-      <SafeAreaProvider>
+      <View style={{ flex: 1, backgroundColor: '#21121B', paddingTop: insets.top }}>
         <StatusBar barStyle="light-content" backgroundColor="#21121B" />
         <PublicLingerieStorefront onExitStorefront={() => setShowPublicStorefront(false)} />
-        <View style={s.versionFooter}>
+        <View style={[s.versionFooter, { paddingBottom: Math.max(4, insets.bottom) }]}>
           <Text style={s.versionText}>v{appVersion}</Text>
         </View>
-      </SafeAreaProvider>
+      </View>
     );
   }
 
   return (
-    <SafeAreaProvider>
+    <View style={{ flex: 1, backgroundColor: '#21121B' }}>
       <StatusBar barStyle="light-content" backgroundColor="#21121B" />
 
-      <View style={s.topBar}>
+      <View style={[s.topBar, { paddingTop: Math.max(8, insets.top + 4) }]}>
         <Pressable style={s.linkBtn} onPress={() => setShowPublicStorefront(true)}>
           <Text style={s.linkBtnText}>Vetrina 18+</Text>
         </Pressable>
@@ -86,7 +87,7 @@ export default function App() {
 
       {showAuthModal ? (
         <View style={{ flex: 1, backgroundColor: '#21121B' }}>
-          <View style={s.authHeader}>
+          <View style={[s.authHeader, { paddingTop: Math.max(8, insets.top + 4) }]}>
             <Pressable style={s.linkBtn} onPress={() => setShowAuthModal(false)}>
               <Text style={s.linkBtnText}>← Torna al Negozio</Text>
             </Pressable>
@@ -104,6 +105,14 @@ export default function App() {
           </AuthGate>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppShell />
     </SafeAreaProvider>
   );
 }
