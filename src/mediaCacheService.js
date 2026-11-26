@@ -79,7 +79,7 @@ export async function loadCatalogPage(allItems, { page = 1, pageSize = 24 } = {}
  */
 export async function getOrDownloadFullImage(item) {
   const itemId = item?.id || item?.name;
-  const remoteUrl = item?.fullImageUrl || item?.imageUrl || item?.image;
+  const remoteUrl = item?.fullImageUrl || (item?.fullImageUrl || item?.imageUrl || item?.thumbnailUrl || item?.image) || item?.image;
 
   if (!remoteUrl || !String(remoteUrl).startsWith('http')) {
     return { uri: null, fromCache: false, error: 'URL immagine reale non disponibile.' };
