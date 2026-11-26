@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { StatusBar, View, Pressable, Text, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
 
 import AuthGate from './src/gestionale/AuthGate';
 import ManagementDashboard from './src/gestionale/ManagementDashboard';
@@ -14,6 +15,7 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [session, setSession] = useState(null);
   const [forceStoreView, setForceStoreView] = useState(false);
+  const appVersion = Constants.expoConfig?.version || "1.0.17";
 
   const isStaff = STAFF_ROLES.includes(session?.role);
   const isVip = session?.role === 'Clienti VIP';
@@ -23,6 +25,9 @@ export default function App() {
       <SafeAreaProvider>
         <StatusBar barStyle="light-content" backgroundColor="#21121B" />
         <PublicLingerieStorefront onExitStorefront={() => setShowPublicStorefront(false)} />
+        <View style={s.versionFooter}>
+          <Text style={s.versionText}>v{appVersion}</Text>
+        </View>
       </SafeAreaProvider>
     );
   }
@@ -104,6 +109,16 @@ export default function App() {
 }
 
 const s = StyleSheet.create({
+  versionFooter: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    backgroundColor: '#21121B',
+    alignItems: 'flex-end',
+  },
+  versionText: {
+    color: '#B89AA8',
+    fontSize: 11,
+  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
