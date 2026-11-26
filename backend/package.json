@@ -1,0 +1,8 @@
+{
+  "name": "sabryfox2025-store-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "REST API per catalogo, ordini offline/online e area personale SabryFox2025",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=20" }
+}

@@ -43,7 +43,14 @@ function formatPrice(price) {
   });
 }
 
-export default function EcommerceStoreView({ session, isVip = false, onOpenBackoffice = null }) {
+export default function EcommerceStoreView({
+  session = null,
+  isVip = false,
+  onOpenBackoffice = null,
+  onRequestLogin = null,
+}) {
+  const isAuthenticated = Boolean(session?.uid || session?.email || session?.role);
+
   const [tab, setTab] = useState('catalogo');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +70,15 @@ export default function EcommerceStoreView({ session, isVip = false, onOpenBacko
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
+  useEffect(() => {
+    if (session?.name || session?.username) {
+      setCustomerName((prev) => prev || session.name || session.username || '');
+    }
+    if (session?.email) {
+      setCustomerEmail((prev) => prev || session.email || '');
+    }
+  }, [session]);
+
   const loadCatalog = useCallback(async () => {
     setLoading(true);
     try {
@@ -74,6 +90,10 @@ export default function EcommerceStoreView({ session, isVip = false, onOpenBacko
   }, [isVip]);
 
   const loadOrders = useCallback(async () => {
+    if (!isAuthenticated) {
+      setOrders([]);
+      return;
+    }
     setLoadingOrders(true);
     try {
       const list = await fetchMyCustomerOrders();
@@ -81,7 +101,7 @@ export default function EcommerceStoreView({ session, isVip = false, onOpenBacko
     } finally {
       setLoadingOrders(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     loadCatalog();
@@ -151,7 +171,23 @@ export default function EcommerceStoreView({ session, isVip = false, onOpenBacko
       Alert.alert('Carrello vuoto', 'Aggiungi almeno un capo prima di inviare l’ordine.');
       return;
     }
-    if (!customerName.trim() || !customerPhone.trim() || !customerAddress.trim() || !customerCity.trim() || !customerPostalCode.trim()) {
+
+    if (!isAuthenticated) {
+      if (typeof onRequestLogin === 'function') {
+        onRequestLogin('checkout');
+      } else {
+        Alert.alert('Accesso richiesto', 'Effettua il login per completare l’acquisto.');
+      }
+      return;
+    }
+
+    if (
+      !customerName.trim() ||
+      !customerPhone.trim() ||
+      !customerAddress.trim() ||
+      !customerCity.trim() ||
+      !customerPostalCode.trim()
+    ) {
       Alert.alert('Dati mancanti', 'Compila nome, telefono, indirizzo, città e CAP per la consegna.');
       return;
     }
@@ -193,7 +229,9 @@ export default function EcommerceStoreView({ session, isVip = false, onOpenBacko
           {isVip ? 'BOUTIQUE E-COMMERCE · AREA VIP' : 'BOUTIQUE E-COMMERCE'}
         </Text>
         <Text style={s.welcome}>
-          Benvenuta/o, {session?.name || session?.username || 'Cliente'}
+          {isAuthenticated
+            ? `Benvenuta/o, ${session?.name || session?.username || 'Cliente'}`
+            : 'Esplora liberamente il catalogo · Accesso richiesto solo per l’acquisto'}
         </Text>
 
         {onOpenBackoffice ? (
@@ -343,73 +381,92 @@ export default function EcommerceStoreView({ session, isVip = false, onOpenBacko
                   </Text>
                 </View>
 
-                <View style={s.formCard}>
-                  <Text style={s.sectionTitle}>Dati di spedizione e contatto</Text>
-                  <TextInput
-                    style={s.input}
-                    value={customerName}
-                    onChangeText={setCustomerName}
-                    placeholder="Nome e Cognome *"
-                    placeholderTextColor={C.subtle}
-                  />
-                  <TextInput
-                    style={s.input}
-                    value={customerEmail}
-                    onChangeText={setCustomerEmail}
-                    placeholder="Email"
-                    placeholderTextColor={C.subtle}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                  <TextInput
-                    style={s.input}
-                    value={customerPhone}
-                    onChangeText={setCustomerPhone}
-                    placeholder="Telefono *"
-                    placeholderTextColor={C.subtle}
-                    keyboardType="phone-pad"
-                  />
-                  <TextInput
-                    style={s.input}
-                    value={customerAddress}
-                    onChangeText={setCustomerAddress}
-                    placeholder="Indirizzo (Via e civico) *"
-                    placeholderTextColor={C.subtle}
-                  />
-                  <TextInput
-                    style={s.input}
-                    value={customerCity}
-                    onChangeText={setCustomerCity}
-                    placeholder="Città *"
-                    placeholderTextColor={C.subtle}
-                  />
-                  <TextInput
-                    style={s.input}
-                    value={customerPostalCode}
-                    onChangeText={setCustomerPostalCode}
-                    placeholder="CAP *"
-                    placeholderTextColor={C.subtle}
-                    keyboardType="numeric"
-                  />
-                  <TextInput
-                    style={[s.input, { minHeight: 72 }]}
-                    value={orderNote}
-                    onChangeText={setOrderNote}
-                    placeholder="Note per l'ordine (facoltativo)"
-                    placeholderTextColor={C.subtle}
-                    multiline
-                  />
-
-                  <Pressable
-                    style={[s.primaryBtn, submitting && { opacity: 0.6 }]}
-                    onPress={handleCheckout}
-                    disabled={submitting}
-                  >
-                    <Text style={s.primaryBtnText}>
-                      {submitting ? 'Invio in corso...' : 'Conferma ordine'}
+                {!isAuthenticated ? (
+                  <View style={s.formCard}>
+                    <Text style={s.sectionTitle}>Completa l'acquisto</Text>
+                    <Text style={s.metaText}>
+                      Per confermare l’ordine e inserire i dati di consegna è necessario accedere o registrarsi. Il tuo carrello resterà salvato.
                     </Text>
-                  </Pressable>
-                </View>
+                    <Pressable
+                      style={s.primaryBtn}
+                      onPress={() => {
+                        if (typeof onRequestLogin === 'function') {
+                          onRequestLogin('checkout');
+                        }
+                      }}
+                    >
+                      <Text style={s.primaryBtnText}>Accedi o registrati per acquistare</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View style={s.formCard}>
+                    <Text style={s.sectionTitle}>Dati di spedizione e contatto</Text>
+                    <TextInput
+                      style={s.input}
+                      value={customerName}
+                      onChangeText={setCustomerName}
+                      placeholder="Nome e Cognome *"
+                      placeholderTextColor={C.subtle}
+                    />
+                    <TextInput
+                      style={s.input}
+                      value={customerEmail}
+                      onChangeText={setCustomerEmail}
+                      placeholder="Email"
+                      placeholderTextColor={C.subtle}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                    <TextInput
+                      style={s.input}
+                      value={customerPhone}
+                      onChangeText={setCustomerPhone}
+                      placeholder="Telefono *"
+                      placeholderTextColor={C.subtle}
+                      keyboardType="phone-pad"
+                    />
+                    <TextInput
+                      style={s.input}
+                      value={customerAddress}
+                      onChangeText={setCustomerAddress}
+                      placeholder="Indirizzo (Via e civico) *"
+                      placeholderTextColor={C.subtle}
+                    />
+                    <TextInput
+                      style={s.input}
+                      value={customerCity}
+                      onChangeText={setCustomerCity}
+                      placeholder="Città *"
+                      placeholderTextColor={C.subtle}
+                    />
+                    <TextInput
+                      style={s.input}
+                      value={customerPostalCode}
+                      onChangeText={setCustomerPostalCode}
+                      placeholder="CAP *"
+                      placeholderTextColor={C.subtle}
+                      keyboardType="numeric"
+                    />
+                    <TextInput
+                      style={[s.input, { minHeight: 72 }]}
+                      value={orderNote}
+                      onChangeText={setOrderNote}
+                      placeholder="Note per l'ordine (facoltativo)"
+                      placeholderTextColor={C.subtle}
+                      multiline
+                    />
+
+                    <Pressable
+                      style={[s.primaryBtn, submitting && { opacity: 0.6 }]}
+                      onPress={handleCheckout}
+                      disabled={submitting}
+                    >
+                      <Text style={s.primaryBtnText}>
+                        {submitting ? 'Invio in corso...' : 'Conferma ordine'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
               </>
             )}
           </View>
@@ -417,7 +474,22 @@ export default function EcommerceStoreView({ session, isVip = false, onOpenBacko
 
         {tab === 'ordini' && (
           <View>
-            {loadingOrders ? (
+            {!isAuthenticated ? (
+              <View style={s.emptyBox}>
+                <Text style={s.emptyTitle}>Accesso richiesto per i tuoi ordini</Text>
+                <Text style={s.emptyCopy}>
+                  Accedi al tuo account per visualizzare lo storico degli acquisti.
+                </Text>
+                {typeof onRequestLogin === 'function' ? (
+                  <Pressable
+                    style={[s.primaryBtn, { paddingHorizontal: 20 }]}
+                    onPress={() => onRequestLogin('orders')}
+                  >
+                    <Text style={s.primaryBtnText}>Accedi ora</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : loadingOrders ? (
               <ActivityIndicator color={C.gold} size="large" style={{ marginTop: 28 }} />
             ) : orders.length === 0 ? (
               <View style={s.emptyBox}>

@@ -323,8 +323,7 @@ export default function AuthGate({ children }) {
       return;
     }
 
-    const roleSnap = await dbMod.ref(`roles/${current.uid}`).once('value');
-    const roleData = roleSnap.val();
+    const roleData = await onceVal(`roles/${current.uid}`);
     if (roleData && roleData.active === true && ALLOWED_ROLES.includes(roleData.role)) {
       setSession({
         id: current.uid,

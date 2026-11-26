@@ -2,7 +2,7 @@
   "expo": {
     "name": "SabryFox2025 Lingerie",
     "slug": "sabryfox2025-lingerie",
-    "version": "1.0.18",
+    "version": "1.0.19",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "icon": "./assets/icon.png",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "it.sabryfox2025.lingerie",
-      "versionCode": 14,
+      "versionCode": 15,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#160B12"

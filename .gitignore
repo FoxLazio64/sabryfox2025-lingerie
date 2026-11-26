@@ -47,3 +47,4 @@ App.js.pre-local-auth-*
 App.js.pre-*
 
 /google-services.json
+offline-archive/
