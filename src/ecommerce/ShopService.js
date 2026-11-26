@@ -11,11 +11,12 @@ function normalizeProducts(raw, sourceLabel) {
     ...(val && typeof val === 'object' ? val : { name: String(val) }),
   }));
   return list
-    .filter((item) => item && item.active !== false)
+    .filter((item) => item && item.active !== false && item.publishable !== false)
     .map((item, idx) => ({
       id: String(item.id || item.code || `${sourceLabel}-${idx}`),
-      code: String(item.code || item.id || `SF-${idx + 1}`),
+      code: String(item.sku || item.code || item.id || `SF-${idx + 1}`),
       name: String(item.name || item.title || `Capo ${idx + 1}`),
+      brand: String(item.brand || ''),
       category: String(item.category || 'Completi'),
       description: String(item.description || ''),
       price: item.price === null || item.price === undefined || item.price === '' ? null : Number(item.price),
@@ -53,6 +54,10 @@ export async function fetchShopCatalog({ includeVip = false } = {}) {
 
   if (combined.length === 0 && Array.isArray(LOCAL_CATALOG) && LOCAL_CATALOG.length > 0) {
     addItems(normalizeProducts(LOCAL_CATALOG, 'local'));
+  }
+
+  if (combined.length === 0 && Array.isArray(publicEcommerceCatalog?.items) && publicEcommerceCatalog.items.length > 0) {
+    addItems(normalizeProducts(publicEcommerceCatalog.items, 'public'));
   }
 
   return combined;

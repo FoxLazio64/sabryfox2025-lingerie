@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,6 +27,7 @@ export default function PublicLingerieStorefront({ onExitStorefront }) {
   const [ageVerified, setAgeVerified] = useState(false);
   const [underageBlocked, setUnderageBlocked] = useState(false);
   const [catalog, setCatalog] = useState([]);
+  const [brokenImages, setBrokenImages] = useState({});
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [quantities, setQuantities] = useState({});
@@ -189,10 +191,18 @@ export default function PublicLingerieStorefront({ onExitStorefront }) {
       ) : (
         catalog.map((item) => {
           const qty = Number(quantities[item.id] || 0);
+          const hasThumb = Boolean(item.imageUrl && !brokenImages[item.id]);
           return (
             <View key={item.id} style={styles.card}>
+              <Image
+                source={hasThumb ? { uri: item.imageUrl } : require('../../assets/logo.jpg')}
+                style={styles.thumbImg}
+                resizeMode={hasThumb ? 'cover' : 'contain'}
+                onError={() => setBrokenImages((prev) => ({ ...prev, [item.id]: true }))}
+              />
               <Text style={styles.cardTitle}>{item.name || item.code}</Text>
               <Text style={styles.metaText}>
+                {item.brand ? `${item.brand} · ` : ''}
                 {item.category ? `${item.category} · ` : ''}
                 {item.size ? `Taglia: ${item.size}` : ''}
                 {item.color ? ` · Colore: ${item.color}` : ''}
@@ -310,6 +320,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: PALETTE.line,
+  },
+  thumbImg: {
+    width: '100%',
+    height: 170,
+    borderRadius: 8,
+    marginBottom: 10,
+    backgroundColor: PALETTE.cream,
   },
   noticeCard: {
     backgroundColor: PALETTE.white,

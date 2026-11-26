@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { StatusBar, View, Pressable, Text, StyleSheet } from 'react-native';
+import {
+  StatusBar,
+  View,
+  Pressable,
+  Text,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 
@@ -23,18 +31,32 @@ function AppShell() {
 
   if (showPublicStorefront) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#21121B', paddingTop: insets.top }}>
+      <KeyboardAvoidingView
+        style={{
+          flex: 1,
+          backgroundColor: '#21121B',
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <StatusBar barStyle="light-content" backgroundColor="#21121B" />
         <PublicLingerieStorefront onExitStorefront={() => setShowPublicStorefront(false)} />
-        <View style={[s.versionFooter, { paddingBottom: Math.max(4, insets.bottom) }]}>
+        <View style={s.versionFooter}>
           <Text style={s.versionText}>v{appVersion}</Text>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#21121B' }}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#21121B',
+        paddingBottom: insets.bottom,
+      }}
+    >
       <StatusBar barStyle="light-content" backgroundColor="#21121B" />
 
       <View style={[s.topBar, { paddingTop: Math.max(8, insets.top + 4) }]}>
@@ -63,48 +85,53 @@ function AppShell() {
         )}
       </View>
 
-      {session && isStaff && !forceStoreView ? (
-        <View style={{ flex: 1, backgroundColor: '#21121B' }}>
-          <ManagementDashboard session={session} />
-        </View>
-      ) : null}
-
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: '#21121B',
-          display:
-            (session && isStaff && !forceStoreView) || showAuthModal ? 'none' : 'flex',
-        }}
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: '#21121B' }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <EcommerceStoreView
-          session={session}
-          isVip={isVip || isStaff}
-          onOpenBackoffice={isStaff ? () => setForceStoreView(false) : null}
-          onRequestLogin={() => setShowAuthModal(true)}
-        />
-      </View>
-
-      {showAuthModal ? (
-        <View style={{ flex: 1, backgroundColor: '#21121B' }}>
-          <View style={[s.authHeader, { paddingTop: Math.max(8, insets.top + 4) }]}>
-            <Pressable style={s.linkBtn} onPress={() => setShowAuthModal(false)}>
-              <Text style={s.linkBtnText}>← Torna al Negozio</Text>
-            </Pressable>
+        {session && isStaff && !forceStoreView ? (
+          <View style={{ flex: 1, backgroundColor: '#21121B' }}>
+            <ManagementDashboard session={session} />
           </View>
-          <AuthGate>
-            {(authenticatedSession) => {
-              if (authenticatedSession && authenticatedSession !== session) {
-                setTimeout(() => {
-                  setSession(authenticatedSession);
-                  setShowAuthModal(false);
-                }, 0);
-              }
-              return null;
-            }}
-          </AuthGate>
+        ) : null}
+
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: '#21121B',
+            display:
+              (session && isStaff && !forceStoreView) || showAuthModal ? 'none' : 'flex',
+          }}
+        >
+          <EcommerceStoreView
+            session={session}
+            isVip={isVip || isStaff}
+            onOpenBackoffice={isStaff ? () => setForceStoreView(false) : null}
+            onRequestLogin={() => setShowAuthModal(true)}
+          />
         </View>
-      ) : null}
+
+        {showAuthModal ? (
+          <View style={{ flex: 1, backgroundColor: '#21121B' }}>
+            <View style={s.authHeader}>
+              <Pressable style={s.linkBtn} onPress={() => setShowAuthModal(false)}>
+                <Text style={s.linkBtnText}>← Torna al Negozio</Text>
+              </Pressable>
+            </View>
+            <AuthGate>
+              {(authenticatedSession) => {
+                if (authenticatedSession && authenticatedSession !== session) {
+                  setTimeout(() => {
+                    setSession(authenticatedSession);
+                    setShowAuthModal(false);
+                  }, 0);
+                }
+                return null;
+              }}
+            </AuthGate>
+          </View>
+        ) : null}
+      </KeyboardAvoidingView>
     </View>
   );
 }

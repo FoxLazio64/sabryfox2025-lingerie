@@ -1,4 +1,5 @@
 import dbDefault, * as FirebaseDbMod from '@react-native-firebase/database';
+import publicEcommerceCatalog from '../data/ecommerceCatalog.json';
 
 function resolveDbInstance() {
   const candidates = [
@@ -57,30 +58,45 @@ async function pushNew(path, value) {
   throw new Error('Scrittura richiesta non disponibile.');
 }
 
-export async function fetchPublicCatalog() {
-  const raw = await readOnce('publicCatalog');
-  if (!raw || typeof raw !== 'object') return [];
-
-  return Object.entries(raw)
+function mapCatalogEntries(entries) {
+  return entries
     .map(([key, item]) => {
       const data = item && typeof item === 'object' ? item : {};
-      const availableQty = Number(data.availableQty ?? data.quantity ?? 0);
+      const availableQty = Number(data.availableQty ?? data.quantity ?? (data.inStock ? 5 : 0));
       const price = Number(data.price ?? data.salePrice ?? 0);
       return {
         id: String(data.id || key),
-        code: String(data.code || ''),
+        code: String(data.sku || data.code || ''),
         name: String(data.name || ''),
+        brand: String(data.brand || ''),
         category: String(data.category || ''),
         size: String(data.size || ''),
         color: String(data.color || ''),
         price: Number.isFinite(price) && price > 0 ? Number(price.toFixed(2)) : 0,
         availableQty: Number.isFinite(availableQty) ? availableQty : 0,
-        imageUrl: data.imageUrl ? String(data.imageUrl) : null,
+        imageUrl: data.imageUrl || data.image ? String(data.imageUrl || data.image) : null,
         updatedAt: data.updatedAt || '',
       };
     })
     .filter((entry) => entry.id && entry.availableQty > 0)
     .sort((a, b) => a.name.localeCompare(b.name, 'it'));
+}
+
+export async function fetchPublicCatalog() {
+  try {
+    const raw = await readOnce('publicCatalog');
+    if (raw && typeof raw === 'object') {
+      const mapped = mapCatalogEntries(Object.entries(raw));
+      if (mapped.length > 0) {
+        return mapped;
+      }
+    }
+  } catch (_) {}
+
+  const localItems = Array.isArray(publicEcommerceCatalog?.items)
+    ? publicEcommerceCatalog.items.filter((it) => it && it.publishable !== false)
+    : [];
+  return mapCatalogEntries(localItems.map((it, idx) => [it.id || `local-${idx}`, it]));
 }
 
 export async function submitVisitorRequest({ items = [], contactNote = '' } = {}) {
