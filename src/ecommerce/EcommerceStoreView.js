@@ -59,6 +59,7 @@ export default function EcommerceStoreView({
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('Tutti');
   const [selectedSizes, setSelectedSizes] = useState({});
+  const [selectedColors, setSelectedColors] = useState({});
   const [previewItem, setPreviewItem] = useState(null);
   const [visibleCount, setVisibleCount] = useState(24);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -139,10 +140,16 @@ export default function EcommerceStoreView({
   }, [cart]);
 
   const addToCart = (product) => {
-    const chosenSize =
-      selectedSizes[product.id] ||
-      (Array.isArray(product.sizes) && product.sizes.length > 0 ? product.sizes[0] : '');
-    const key = `${product.id}::${chosenSize}`;
+    const sizeChoices = Array.isArray(product.sizes) && product.sizes.length > 0
+      ? product.sizes
+      : ["XS", "S", "M", "L", "XL"];
+    const colorChoices = Array.isArray(product.colors) && product.colors.length > 0
+      ? product.colors
+      : (product.color ? [product.color] : ["Nero"]);
+
+    const chosenSize = selectedSizes[product.id] || product.size || sizeChoices[0] || "";
+    const chosenColor = selectedColors[product.id] || product.color || colorChoices[0] || "";
+    const key = `${product.id}::${chosenSize}::${chosenColor}`;
 
     setCart((prev) => {
       const idx = prev.findIndex((x) => x.key === key);
@@ -158,8 +165,10 @@ export default function EcommerceStoreView({
           productId: product.id,
           code: product.code,
           name: product.name,
+          brand: product.brand || "",
           price: product.price,
           size: chosenSize,
+          color: chosenColor,
           qty: 1,
         },
       ];
@@ -299,67 +308,99 @@ export default function EcommerceStoreView({
               </View>
             ) : (
               filteredProducts.slice(0, visibleCount).map((item) => {
-                const activeSize =
-                  selectedSizes[item.id] ||
-                  (Array.isArray(item.sizes) && item.sizes.length > 0 ? item.sizes[0] : '');
-                const thumbUri = item.thumbnailUrl || item.imageUrl || item.fullImageUrl || '';
+                const sizeOptions = Array.isArray(item.sizes) && item.sizes.length > 0
+                  ? item.sizes
+                  : ["XS", "S", "M", "L", "XL"];
+                const colorOptions = Array.isArray(item.colors) && item.colors.length > 0
+                  ? item.colors
+                  : (item.color ? [item.color] : ["Nero", "Rosso Rubino", "Avorio"]);
+
+                const activeSize = selectedSizes[item.id] || item.size || sizeOptions[0] || "";
+                const activeColor = selectedColors[item.id] || item.color || colorOptions[0] || "";
+                const thumbUri = item.thumbnailUrl || item.imageUrl || item.fullImageUrl || "";
 
                 return (
                   <View key={item.id} style={s.card}>
-                    <Pressable
-                      onPress={() => setPreviewItem(item)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Apri immagine reale di ${item.name}`}
-                    >
-                      {thumbUri && !brokenImages[item.id] ? (
-                        <Image
-                          source={{ uri: thumbUri }}
-                          style={s.productImg}
-                          resizeMode="cover"
-                          onError={() =>
-                            setBrokenImages((prev) => ({ ...prev, [item.id]: true }))
-                          }
-                        />
-                      ) : (
-                        <View style={[s.productImg, { justifyContent: 'center', alignItems: 'center' }]}>
-                          <Text style={s.metaText}>Tocca per scaricare foto reale</Text>
-                        </View>
-                      )}
-                    </Pressable>
-                    <View style={s.cardHeader}>
-                      <Text style={s.cardCategory}>{item.category}</Text>
-                      {item.sourceCatalog === 'vip' ? (
-                        <Text style={s.vipBadge}>VIP</Text>
-                      ) : null}
-                    </View>
-                    <Text style={s.cardTitle}>{item.name}</Text>
-                    <Text style={s.cardPrice}>{formatPrice(item.price)}</Text>
-                    {item.description ? (
-                      <Text style={s.cardDesc}>{item.description}</Text>
-                    ) : null}
-                    {item.color ? (
-                      <Text style={s.metaText}>Colore: {item.color}</Text>
-                    ) : null}
+                    <View style={s.topRow}>
+                      <Pressable
+                        onPress={() => setPreviewItem({ ...item, size: activeSize, color: activeColor })}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Apri immagine reale di ${item.name}`}
+                        style={s.thumbWrapper}
+                      >
+                        {thumbUri && !brokenImages[item.id] ? (
+                          <Image
+                            source={{ uri: thumbUri }}
+                            style={s.productImg}
+                            resizeMode="cover"
+                            onError={() =>
+                              setBrokenImages((prev) => ({ ...prev, [item.id]: true }))
+                            }
+                          />
+                        ) : (
+                          <View style={[s.productImg, { justifyContent: "center", alignItems: "center", padding: 6 }]}>
+                            <Text style={[s.metaText, { textAlign: "center", fontSize: 10 }]}>Foto non disponibile</Text>
+                          </View>
+                        )}
+                      </Pressable>
 
-                    {Array.isArray(item.sizes) && item.sizes.length > 0 ? (
-                      <View style={s.sizeRow}>
-                        {item.sizes.map((sz) => {
-                          const selected = activeSize === sz;
-                          return (
-                            <Pressable
-                              key={sz}
-                              onPress={() => setSelectedSizes((prev) => ({ ...prev, [item.id]: sz }))}
-                              style={[s.sizeChip, selected && s.sizeChipActive]}
-                            >
-                              <Text style={[s.sizeText, selected && s.sizeTextActive]}>{sz}</Text>
-                            </Pressable>
-                          );
-                        })}
+                      <View style={s.infoCol}>
+                        <View style={s.cardHeader}>
+                          <Text style={s.cardCategory}>{item.category}</Text>
+                          {item.sourceCatalog === "vip" ? (
+                            <Text style={s.vipBadge}>VIP</Text>
+                          ) : null}
+                        </View>
+                        <Text style={s.cardTitle}>{item.name}</Text>
+                        <Text style={s.cardPrice}>{formatPrice(item.price)}</Text>
+                        {item.brand ? (
+                          <Text style={s.metaText}>Brand: {item.brand}</Text>
+                        ) : null}
+                        {item.style ? (
+                          <Text style={s.metaText}>Linea: {item.style}</Text>
+                        ) : null}
+                        {item.fabric ? (
+                          <Text style={s.metaText}>Tessuto: {item.fabric}</Text>
+                        ) : null}
                       </View>
-                    ) : null}
+                    </View>
+
+                    <Text style={s.optionLabel}>Taglia ({activeSize || "-"}):</Text>
+                    <View style={s.sizeRow}>
+                      {sizeOptions.map((sz) => {
+                        const selected = activeSize === sz;
+                        return (
+                          <Pressable
+                            key={sz}
+                            onPress={() => setSelectedSizes((prev) => ({ ...prev, [item.id]: sz }))}
+                            style={[s.sizeChip, selected && s.sizeChipActive]}
+                          >
+                            <Text style={[s.sizeText, selected && s.sizeTextActive]}>{sz}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+
+                    <Text style={s.optionLabel}>Colore ({activeColor || "-"}):</Text>
+                    <View style={s.sizeRow}>
+                      {colorOptions.map((col) => {
+                        const selected = activeColor === col;
+                        return (
+                          <Pressable
+                            key={col}
+                            onPress={() => setSelectedColors((prev) => ({ ...prev, [item.id]: col }))}
+                            style={[s.sizeChip, selected && s.sizeChipActive]}
+                          >
+                            <Text style={[s.sizeText, selected && s.sizeTextActive]}>{col}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
 
                     <Pressable style={s.primaryBtn} onPress={() => addToCart(item)}>
-                      <Text style={s.primaryBtnText}>Aggiungi al carrello</Text>
+                      <Text style={s.primaryBtnText}>
+                        Aggiungi ({activeSize} · {activeColor})
+                      </Text>
                     </Pressable>
                   </View>
                 );
@@ -414,7 +455,7 @@ export default function EcommerceStoreView({
                     <View style={{ flex: 1 }}>
                       <Text style={s.cardTitle}>{line.name}</Text>
                       <Text style={s.metaText}>
-                        {line.size ? `Taglia: ${line.size} · ` : ''}
+                        {line.size ? `Taglia: ${line.size} · ` : ''}{line.color ? `Colore: ${line.color} · ` : ''}
                         {formatPrice(line.price)}
                       </Text>
                     </View>
@@ -650,7 +691,11 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.gold,
   },
-  productImg: { width: '100%', height: 190, borderRadius: 10, marginBottom: 10, backgroundColor: C.cardSoft },
+  topRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  thumbWrapper: { width: 104, height: 104, borderRadius: 10, overflow: "hidden", borderWidth: 1, borderColor: C.border, backgroundColor: C.cardSoft },
+  productImg: { width: 104, height: 104, borderRadius: 10, backgroundColor: C.cardSoft },
+  infoCol: { flex: 1 },
+  optionLabel: { color: C.goldLight, fontSize: 12, fontWeight: "700", marginTop: 10 },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.85)',
