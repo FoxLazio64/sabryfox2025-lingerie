@@ -2,6 +2,7 @@ import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
 import { API_BASE_URL } from '../config';
 import { LOCAL_CATALOG } from '../catalog';
+import publicEcommerceCatalog from '../data/ecommerceCatalog.json';
 
 function normalizeProducts(raw, sourceLabel) {
   if (!raw) return [];
@@ -18,7 +19,7 @@ function normalizeProducts(raw, sourceLabel) {
       category: String(item.category || 'Completi'),
       description: String(item.description || ''),
       price: item.price === null || item.price === undefined || item.price === '' ? null : Number(item.price),
-      sizes: Array.isArray(item.sizes) ? item.sizes.filter(Boolean) : [],
+      sizes: Array.isArray(item.sizes) && item.sizes.length > 0 ? item.sizes.filter(Boolean) : (item.size ? [String(item.size)] : ["Unica"]),
       color: String(item.color || ''),
       imageUrl: String(item.imageUrl || item.image || ''),
       sourceCatalog: sourceLabel,

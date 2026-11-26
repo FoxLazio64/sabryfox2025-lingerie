@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   View,
+  Modal,
 } from 'react-native';
 import { CATEGORIES } from '../catalog';
 import { BRAND } from '../config';
@@ -56,6 +57,8 @@ export default function EcommerceStoreView({
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('Tutti');
   const [selectedSizes, setSelectedSizes] = useState({});
+  const [previewItem, setPreviewItem] = useState(null);
+  const [brokenImages, setBrokenImages] = useState({});
   const [cart, setCart] = useState([]);
 
   const [customerName, setCustomerName] = useState(session?.name || session?.username || '');
@@ -297,9 +300,24 @@ export default function EcommerceStoreView({
 
                 return (
                   <View key={item.id} style={s.card}>
-                    {item.imageUrl ? (
-                      <Image source={{ uri: item.imageUrl }} style={s.productImg} resizeMode="cover" />
-                    ) : null}
+                    <Pressable
+                      onPress={() => setPreviewItem(item)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ingrandisci foto di ${item.name}`}
+                    >
+                      <Image
+                        source={
+                          item.imageUrl && !brokenImages[item.id]
+                            ? { uri: item.imageUrl }
+                            : require('../../assets/logo.jpg')
+                        }
+                        style={s.productImg}
+                        resizeMode={item.imageUrl && !brokenImages[item.id] ? 'cover' : 'contain'}
+                        onError={() =>
+                          setBrokenImages((prev) => ({ ...prev, [item.id]: true }))
+                        }
+                      />
+                    </Pressable>
                     <View style={s.cardHeader}>
                       <Text style={s.cardCategory}>{item.category}</Text>
                       {item.sourceCatalog === 'vip' ? (
@@ -521,6 +539,41 @@ export default function EcommerceStoreView({
           </View>
         )}
       </ScrollView>
+
+      <Modal
+        visible={Boolean(previewItem)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewItem(null)}
+      >
+        <View style={s.modalBackdrop}>
+          <View style={s.modalCard}>
+            {previewItem ? (
+              <>
+                <Text style={s.modalTitle}>{previewItem.name}</Text>
+                <Text style={s.modalMeta}>
+                  {previewItem.brand ? `${previewItem.brand} · ` : ''}{previewItem.category} · {formatPrice(previewItem.price)}
+                </Text>
+                <Image
+                  source={
+                    previewItem.imageUrl && !brokenImages[previewItem.id]
+                      ? { uri: previewItem.imageUrl }
+                      : require('../../assets/logo.jpg')
+                  }
+                  style={s.modalImg}
+                  resizeMode="contain"
+                  onError={() =>
+                    setBrokenImages((prev) => ({ ...prev, [previewItem.id]: true }))
+                  }
+                />
+              </>
+            ) : null}
+            <Pressable style={s.modalCloseBtn} onPress={() => setPreviewItem(null)}>
+              <Text style={s.modalCloseText}>Chiudi anteprima</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -576,7 +629,30 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.gold,
   },
-  productImg: { width: '100%', height: 190, borderRadius: 10, marginBottom: 10 },
+  productImg: { width: '100%', height: 190, borderRadius: 10, marginBottom: 10, backgroundColor: C.cardSoft },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    padding: 18,
+  },
+  modalCard: {
+    backgroundColor: C.card,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: C.gold,
+  },
+  modalTitle: { color: C.goldLight, fontSize: 16, fontWeight: '700' },
+  modalMeta: { color: C.muted, fontSize: 12, marginTop: 4, marginBottom: 12 },
+  modalImg: { width: '100%', height: 340, borderRadius: 10, backgroundColor: C.cardSoft, marginBottom: 14 },
+  modalCloseBtn: {
+    backgroundColor: C.gold,
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  modalCloseText: { color: C.bg, fontSize: 13, fontWeight: '700' },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardCategory: { color: C.gold, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 },
   vipBadge: {
