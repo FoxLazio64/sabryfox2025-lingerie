@@ -106,7 +106,23 @@ export async function getOrDownloadFullImage(item) {
   }
 
   const targetUri = `${IMAGES_DIR}${sanitizeFileName(itemId, remoteUrl)}`;
-  const downloadRes = await FileSystem.downloadAsync(remoteUrl, targetUri);
+  const downloadRes = await FileSystem.downloadAsync(remoteUrl, targetUri, {
+    headers: {
+      "User-Agent": "SabryFox2025App/1.0 (https://github.com/FoxLazio64/sabryfox2025-lingerie)",
+      "Accept": "image/jpeg,image/png,image/webp,image/*;q=0.8,*/*;q=0.5"
+    }
+  });
+  if (downloadRes?.uri && downloadRes.status < 400) {
+    const savedInfo = await FileSystem.getInfoAsync(downloadRes.uri);
+    if (!savedInfo.exists || !savedInfo.size || savedInfo.size < 256) {
+      await FileSystem.deleteAsync(downloadRes.uri, { idempotent: true });
+      return {
+        uri: null,
+        fromCache: false,
+        error: "Risposta non valida o file immagine vuoto."
+      };
+    }
+  }
 
   if (!downloadRes?.uri || downloadRes.status >= 400) {
     return {
