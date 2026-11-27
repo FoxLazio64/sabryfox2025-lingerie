@@ -49,6 +49,7 @@ function formatPrice(price) {
 export default function EcommerceStoreView({
   session = null,
   isVip = false,
+  isAdultVerified = false,
   onOpenBackoffice = null,
   onRequestLogin = null,
 }) {
@@ -123,11 +124,18 @@ export default function EcommerceStoreView({
   }, [tab, loadOrders]);
 
   const filteredProducts = useMemo(() => {
-    if (selectedCategory === 'Tutti') return products;
-    return products.filter(
+    const allowedList = isAdultVerified
+      ? products
+      : products.filter(
+          (p) =>
+            String(p.category || '').toLowerCase() !== 'lingerie sexy' &&
+            p.sourceCatalog !== 'vip'
+        );
+    if (selectedCategory === 'Tutti') return allowedList;
+    return allowedList.filter(
       (p) => String(p.category || '').toLowerCase() === selectedCategory.toLowerCase()
     );
-  }, [products, selectedCategory]);
+  }, [products, selectedCategory, isAdultVerified]);
 
   const cartCount = useMemo(
     () => cart.reduce((sum, item) => sum + item.qty, 0),

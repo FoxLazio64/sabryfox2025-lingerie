@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  BackHandler,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +11,37 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const AGE_STORAGE_KEY = '@sabryfox_age_gate_v1';
+
+function parseBirthDateAndCheckAdult(input) {
+  const cleaned = String(input || '').trim();
+  const match = cleaned.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (!match) {
+    return { valid: false, reason: 'Inserisci la data di nascita nel formato GG/MM/AAAA (es. 15/06/1994).' };
+  }
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const now = new Date();
+  const currentYear = now.getFullYear();
+
+  if (year < 1910 || year > currentYear || month < 1 || month > 12 || day < 1 || day > 31) {
+    return { valid: false, reason: 'La data di nascita inserita non è valida.' };
+  }
+  const birth = new Date(year, month - 1, day);
+  if (birth.getFullYear() !== year || birth.getMonth() !== month - 1 || birth.getDate() !== day || birth > now) {
+    return { valid: false, reason: 'La data di nascita inserita non esiste nel calendario.' };
+  }
+
+  let age = currentYear - year;
+  const mDiff = now.getMonth() - (month - 1);
+  if (mDiff < 0 || (mDiff === 0 && now.getDate() < day)) {
+    age--;
+  }
+  return { valid: true, isAdult: age >= 18, age };
+}
 import { fetchPublicCatalog, submitVisitorRequest } from './PublicStorefrontService';
 
 const PALETTE = {
@@ -23,9 +56,12 @@ const PALETTE = {
   red: '#9B4C50',
 };
 
-export default function PublicLingerieStorefront({ onExitStorefront }) {
+export default function PublicLingerieStorefront({ onExitStorefront, onAgeStatusChange }) {
+  const [checkingStorage, setCheckingStorage] = useState(true);
   const [ageVerified, setAgeVerified] = useState(false);
   const [underageBlocked, setUnderageBlocked] = useState(false);
+  const [birthDateInput, setBirthDateInput] = useState('');
+  const [ageError, setAgeError] = useState('');
   const [catalog, setCatalog] = useState([]);
   const [brokenImages, setBrokenImages] = useState({});
   const [loading, setLoading] = useState(false);
@@ -47,10 +83,62 @@ export default function PublicLingerieStorefront({ onExitStorefront }) {
   };
 
   useEffect(() => {
-    if (ageVerified) {
+    let active = true;
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(AGE_STORAGE_KEY);
+        if (!active) return;
+        if (saved === 'blocked') {
+          setUnderageBlocked(true);
+          if (typeof onAgeStatusChange === 'function') onAgeStatusChange('blocked');
+        } else if (saved === 'verified') {
+          setAgeVerified(true);
+          if (typeof onAgeStatusChange === 'function') onAgeStatusChange('verified');
+        }
+      } catch {}
+      if (active) setCheckingStorage(false);
+    })();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (ageVerified && !underageBlocked) {
       loadCatalog();
     }
-  }, [ageVerified]);
+  }, [ageVerified, underageBlocked]);
+
+  const lockUnderageAccess = async () => {
+    setUnderageBlocked(true);
+    setAgeVerified(false);
+    setCatalog([]);
+    try {
+      await AsyncStorage.setItem(AGE_STORAGE_KEY, 'blocked');
+    } catch {}
+    if (typeof onAgeStatusChange === 'function') {
+      onAgeStatusChange('blocked');
+    }
+  };
+
+  const handleConfirmBirthDate = async () => {
+    const check = parseBirthDateAndCheckAdult(birthDateInput);
+    if (!check.valid) {
+      setAgeError(check.reason);
+      return;
+    }
+    if (!check.isAdult) {
+      setAgeError('Accesso negato: età inferiore a 18 anni.');
+      await lockUnderageAccess();
+      return;
+    }
+    setAgeError('');
+    setAgeVerified(true);
+    try {
+      await AsyncStorage.setItem(AGE_STORAGE_KEY, 'verified');
+    } catch {}
+    if (typeof onAgeStatusChange === 'function') {
+      onAgeStatusChange('verified');
+    }
+  };
 
   const setItemQty = (item, delta) => {
     const maxQty = Number(item.availableQty || 0);
@@ -105,18 +193,34 @@ export default function PublicLingerieStorefront({ onExitStorefront }) {
     }
   };
 
+  if (checkingStorage) {
+    return (
+      <View style={styles.gateRoot}>
+        <View style={styles.gateCard}>
+          <Text style={styles.badge}>CONTROLLO ACCESSO 18+</Text>
+          <Text style={styles.gateTitle}>Verifica requisiti in corso...</Text>
+        </View>
+      </View>
+    );
+  }
+
   if (underageBlocked) {
     return (
       <View style={styles.gateRoot}>
         <View style={styles.gateCard}>
-          <Text style={styles.badge}>CONTENUTO RISERVATO 18+</Text>
-          <Text style={styles.gateTitle}>Accesso non consentito</Text>
+          <Text style={styles.badge}>ACCESSO BLOCCATO · SOLO 18+</Text>
+          <Text style={styles.gateTitle}>Contenuto vietato ai minori di 18 anni</Text>
           <Text style={styles.gateText}>
-            Questa vetrina è destinata esclusivamente a un pubblico maggiorenne.
+            La verifica dell'età ha rilevato un utente minorenne o non autorizzato. L'accesso alla vetrina adulti è stato bloccato su questo dispositivo.
           </Text>
+          {Platform.OS === 'android' ? (
+            <Pressable style={styles.primaryBtn} onPress={() => BackHandler.exitApp()}>
+              <Text style={styles.primaryBtnText}>Chiudi applicazione</Text>
+            </Pressable>
+          ) : null}
           {typeof onExitStorefront === 'function' ? (
-            <Pressable style={styles.primaryBtn} onPress={onExitStorefront}>
-              <Text style={styles.primaryBtnText}>Torna all'avvio</Text>
+            <Pressable style={[styles.secondaryBtn, { marginTop: 10 }]} onPress={onExitStorefront}>
+              <Text style={styles.secondaryBtnText}>Esci dalla Vetrina 18+</Text>
             </Pressable>
           ) : null}
         </View>
@@ -128,24 +232,51 @@ export default function PublicLingerieStorefront({ onExitStorefront }) {
     return (
       <View style={styles.gateRoot}>
         <View style={styles.gateCard}>
-          <Text style={styles.badge}>VETRINA ADULTI · 18+</Text>
-          <Text style={styles.gateTitle}>Verifica maggiore età</Text>
+          <Text style={styles.badge}>VETRINA ADULTI · VERIFICA OBBLIGATORIA 18+</Text>
+          <Text style={styles.gateTitle}>Verifica reale maggiore età</Text>
           <Text style={styles.gateText}>
-            L'accesso al catalogo lingerie di SabryFox2025 è riservato esclusivamente a persone di età pari o superiore a 18 anni.
+            L'accesso al catalogo lingerie e lingerie sexy di SabryFox2025 è consentito esclusivamente a persone maggiorenni (18+ anni compiuti). Inserisci la tua data di nascita reale:
           </Text>
-          <Pressable style={styles.primaryBtn} onPress={() => setAgeVerified(true)}>
-            <Text style={styles.primaryBtnText}>Confermo di avere almeno 18 anni</Text>
+          <TextInput
+            value={birthDateInput}
+            onChangeText={(txt) => {
+              setBirthDateInput(txt);
+              if (ageError) setAgeError('');
+            }}
+            placeholder="GG/MM/AAAA (es. 14/05/1992)"
+            placeholderTextColor="#8B777E"
+            keyboardType="numeric"
+            maxLength={10}
+            style={{
+              backgroundColor: '#21121B',
+              color: '#FFFDFC',
+              borderWidth: 1,
+              borderColor: ageError ? '#D96B70' : '#C9A66B',
+              borderRadius: 10,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              fontSize: 15,
+              marginBottom: 10,
+              textAlign: 'center',
+            }}
+          />
+          {ageError ? (
+            <Text style={{ color: '#F29B9E', fontSize: 12, marginBottom: 10, textAlign: 'center' }}>
+              {ageError}
+            </Text>
+          ) : null}
+          <Pressable style={styles.primaryBtn} onPress={handleConfirmBirthDate}>
+            <Text style={styles.primaryBtnText}>Verifica data di nascita ed entra (18+)</Text>
           </Pressable>
           <Pressable
             style={[styles.secondaryBtn, { marginTop: 10 }]}
-            onPress={() => {
+            onPress={async () => {
+              await lockUnderageAccess();
               if (typeof onExitStorefront === 'function') {
                 onExitStorefront();
-              } else {
-                setUnderageBlocked(true);
               }
             }}>
-            <Text style={styles.secondaryBtnText}>Ho meno di 18 anni / Esci</Text>
+            <Text style={styles.secondaryBtnText}>Ho meno di 18 anni / Blocca ed Esci</Text>
           </Pressable>
         </View>
       </View>

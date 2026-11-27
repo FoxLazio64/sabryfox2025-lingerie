@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   StatusBar,
   View,
@@ -24,6 +25,15 @@ function AppShell() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [session, setSession] = useState(null);
   const [forceStoreView, setForceStoreView] = useState(false);
+  const [ageGateStatus, setAgeGateStatus] = useState('unverified');
+
+  useEffect(() => {
+    AsyncStorage.getItem('@sabryfox_age_gate_v1')
+      .then((val) => {
+        if (val === 'blocked' || val === 'verified') setAgeGateStatus(val);
+      })
+      .catch(() => {});
+  }, []);
   const appVersion = Constants.expoConfig?.version || "1.0.17";
 
   const isStaff = STAFF_ROLES.includes(session?.role);
@@ -41,7 +51,7 @@ function AppShell() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <StatusBar barStyle="light-content" backgroundColor="#21121B" />
-        <PublicLingerieStorefront onExitStorefront={() => setShowPublicStorefront(false)} />
+        <PublicLingerieStorefront onExitStorefront={() => setShowPublicStorefront(false)} onAgeStatusChange={(st) => setAgeGateStatus(st)} />
         <View style={s.versionFooter}>
           <Text style={s.versionText}>v{appVersion}</Text>
         </View>
@@ -60,9 +70,15 @@ function AppShell() {
       <StatusBar barStyle="light-content" backgroundColor="#21121B" />
 
       <View style={[s.topBar, { paddingTop: Math.max(8, insets.top + 4) }]}>
-        <Pressable style={s.linkBtn} onPress={() => setShowPublicStorefront(true)}>
-          <Text style={s.linkBtnText}>Vetrina 18+</Text>
-        </Pressable>
+        {ageGateStatus !== 'blocked' ? (
+          <Pressable style={s.linkBtn} onPress={() => setShowPublicStorefront(true)}>
+            <Text style={s.linkBtnText}>Vetrina 18+</Text>
+          </Pressable>
+        ) : (
+          <View style={[s.linkBtn, { opacity: 0.5 }]}>
+            <Text style={s.linkBtnText}>18+ Bloccato</Text>
+          </View>
+        )}
 
         {session ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -106,6 +122,7 @@ function AppShell() {
           <EcommerceStoreView
             session={session}
             isVip={isVip || isStaff}
+            isAdultVerified={isVip || isStaff || ageGateStatus === 'verified'}
             onOpenBackoffice={isStaff ? () => setForceStoreView(false) : null}
             onRequestLogin={() => setShowAuthModal(true)}
           />
