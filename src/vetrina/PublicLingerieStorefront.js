@@ -56,6 +56,70 @@ const PALETTE = {
   red: '#9B4C50',
 };
 
+const REAL_REF_SIZE = 340;
+const THUMB_FACTOR = 0.3;
+
+function computeNaturalThumbStyle(natW, natH) {
+  if (!natW || !natH || natW <= 0 || natH <= 0) {
+    const fallbackSide = Math.round(REAL_REF_SIZE * THUMB_FACTOR);
+    return { width: fallbackSide, height: fallbackSide };
+  }
+  const ratio = natW / natH;
+  let refW = REAL_REF_SIZE;
+  let refH = REAL_REF_SIZE;
+  if (ratio >= 1) {
+    refW = REAL_REF_SIZE;
+    refH = Math.max(40, Math.round(REAL_REF_SIZE / ratio));
+  } else {
+    refH = REAL_REF_SIZE;
+    refW = Math.max(40, Math.round(REAL_REF_SIZE * ratio));
+  }
+  return {
+    width: Math.max(24, Math.round(refW * THUMB_FACTOR)),
+    height: Math.max(24, Math.round(refH * THUMB_FACTOR)),
+  };
+}
+
+function deriveTechSpecs(item) {
+  const cat = String(item.category || "").toLowerCase();
+  const isSexy = cat.includes("sexy") || item.sourceCatalog === "vip";
+  const isBody = cat.includes("body");
+  const isBabydoll = cat.includes("babydoll") || cat.includes("vestaglia");
+  const isSet = cat.includes("complet") || cat.includes("set") || cat.includes("parure");
+
+  const modelType =
+    item.modelType ||
+    item.cut ||
+    (isSet
+      ? "Completo coordinato (reggiseno + slip/brasiliana)"
+      : isBody
+      ? "Body modellante / seduzione"
+      : isBabydoll
+      ? "Babydoll / sottoveste"
+      : "Capo intimo donna");
+
+  const cupAndWire =
+    item.cupSupport ||
+    item.underwire ||
+    (isSexy
+      ? "Coppe a triangolo / balconcino con ferretto o cuciture sagomate"
+      : "Coppe strutturate / imbottitura leggera con supporto");
+
+  const strapsAndClosure =
+    item.closure ||
+    item.straps ||
+    "Spalline regolabili + chiusura posteriore a gancetti / tassello igienico";
+
+  const detailsAndSheerness =
+    item.details ||
+    item.sheerness ||
+    (isSexy
+      ? "Trasparenze mirate, pizzo/tulle, cinturini o dettagli seduzione"
+      : "Finiture piatte anti-segno, bordi elastici morbidi");
+
+  return { modelType, cupAndWire, strapsAndClosure, detailsAndSheerness };
+}
+
 export default function PublicLingerieStorefront({ onExitStorefront, onAgeStatusChange }) {
   const [checkingStorage, setCheckingStorage] = useState(true);
   const [ageVerified, setAgeVerified] = useState(false);
@@ -64,6 +128,7 @@ export default function PublicLingerieStorefront({ onExitStorefront, onAgeStatus
   const [ageError, setAgeError] = useState('');
   const [catalog, setCatalog] = useState([]);
   const [brokenImages, setBrokenImages] = useState({});
+  const [imageDimensions, setImageDimensions] = useState({});
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [quantities, setQuantities] = useState({});
@@ -323,12 +388,31 @@ export default function PublicLingerieStorefront({ onExitStorefront, onAgeStatus
         catalog.map((item) => {
           const qty = Number(quantities[item.id] || 0);
           const hasThumb = Boolean(item.imageUrl && !brokenImages[item.id]);
+          const specs = deriveTechSpecs(item);
           return (
             <View key={item.id} style={styles.card}>
               <Image
                 source={hasThumb ? { uri: item.imageUrl } : require('../../assets/logo.jpg')}
-                style={styles.thumbImg}
-                resizeMode={hasThumb ? 'cover' : 'contain'}
+                style={[
+                  styles.thumbImg,
+                  hasThumb
+                    ? computeNaturalThumbStyle(
+                        imageDimensions[item.id]?.width,
+                        imageDimensions[item.id]?.height
+                      )
+                    : { width: 72, height: 72 },
+                ]}
+                resizeMode="contain"
+                onLoad={(e) => {
+                  const w = e?.nativeEvent?.source?.width;
+                  const h = e?.nativeEvent?.source?.height;
+                  if (w && h) {
+                    setImageDimensions((prev) => ({
+                      ...prev,
+                      [item.id]: { width: w, height: h },
+                    }));
+                  }
+                }}
                 onError={() => setBrokenImages((prev) => ({ ...prev, [item.id]: true }))}
               />
               <Text style={styles.cardTitle}>{item.name || item.code}</Text>
@@ -338,6 +422,11 @@ export default function PublicLingerieStorefront({ onExitStorefront, onAgeStatus
                 {item.size ? `Taglia: ${item.size}` : ''}
                 {item.color ? ` · Colore: ${item.color}` : ''}
               </Text>
+              {item.fabric ? <Text style={styles.metaText}>Tessuto: {item.fabric}</Text> : null}
+              <Text style={styles.metaText}>Modello: {specs.modelType}</Text>
+              <Text style={styles.metaText}>Coppe/Struttura: {specs.cupAndWire}</Text>
+              <Text style={styles.metaText}>Chiusura/Spalline: {specs.strapsAndClosure}</Text>
+              <Text style={styles.metaText}>Dettagli: {specs.detailsAndSheerness}</Text>
               <Text style={styles.priceText}>
                 {item.price > 0 ? `€ ${item.price.toFixed(2)}` : 'Prezzo su richiesta'} · Disp.: {item.availableQty}
               </Text>

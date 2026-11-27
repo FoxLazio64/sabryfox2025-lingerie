@@ -46,6 +46,70 @@ function formatPrice(price) {
   });
 }
 
+const REAL_REF_SIZE = 340;
+const THUMB_FACTOR = 0.3;
+
+function computeNaturalThumbStyle(natW, natH) {
+  if (!natW || !natH || natW <= 0 || natH <= 0) {
+    const fallbackSide = Math.round(REAL_REF_SIZE * THUMB_FACTOR);
+    return { width: fallbackSide, height: fallbackSide };
+  }
+  const ratio = natW / natH;
+  let refW = REAL_REF_SIZE;
+  let refH = REAL_REF_SIZE;
+  if (ratio >= 1) {
+    refW = REAL_REF_SIZE;
+    refH = Math.max(40, Math.round(REAL_REF_SIZE / ratio));
+  } else {
+    refH = REAL_REF_SIZE;
+    refW = Math.max(40, Math.round(REAL_REF_SIZE * ratio));
+  }
+  return {
+    width: Math.max(24, Math.round(refW * THUMB_FACTOR)),
+    height: Math.max(24, Math.round(refH * THUMB_FACTOR)),
+  };
+}
+
+function deriveTechSpecs(item) {
+  const cat = String(item.category || "").toLowerCase();
+  const isSexy = cat.includes("sexy") || item.sourceCatalog === "vip";
+  const isBody = cat.includes("body");
+  const isBabydoll = cat.includes("babydoll") || cat.includes("vestaglia");
+  const isSet = cat.includes("complet") || cat.includes("set") || cat.includes("parure");
+
+  const modelType =
+    item.modelType ||
+    item.cut ||
+    (isSet
+      ? "Completo coordinato (reggiseno + slip/brasiliana)"
+      : isBody
+      ? "Body modellante / seduzione"
+      : isBabydoll
+      ? "Babydoll / sottoveste"
+      : "Capo intimo donna");
+
+  const cupAndWire =
+    item.cupSupport ||
+    item.underwire ||
+    (isSexy
+      ? "Coppe a triangolo / balconcino con ferretto o cuciture sagomate"
+      : "Coppe strutturate / imbottitura leggera con supporto");
+
+  const strapsAndClosure =
+    item.closure ||
+    item.straps ||
+    "Spalline regolabili + chiusura posteriore a gancetti / tassello igienico";
+
+  const detailsAndSheerness =
+    item.details ||
+    item.sheerness ||
+    (isSexy
+      ? "Trasparenze mirate, pizzo/tulle, cinturini o dettagli seduzione"
+      : "Finiture piatte anti-segno, bordi elastici morbidi");
+
+  return { modelType, cupAndWire, strapsAndClosure, detailsAndSheerness };
+}
+
 export default function EcommerceStoreView({
   session = null,
   isVip = false,
@@ -66,6 +130,7 @@ export default function EcommerceStoreView({
   const [loadingMore, setLoadingMore] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [brokenImages, setBrokenImages] = useState({});
+  const [imageDimensions, setImageDimensions] = useState({});
   const [cart, setCart] = useState([]);
 
   const [customerName, setCustomerName] = useState(session?.name || session?.username || '');
@@ -339,8 +404,24 @@ export default function EcommerceStoreView({
                         {thumbUri && !brokenImages[item.id] ? (
                           <Image
                             source={{ uri: thumbUri }}
-                            style={s.productImg}
-                            resizeMode="cover"
+                            style={[
+                              s.productImg,
+                              computeNaturalThumbStyle(
+                                imageDimensions[item.id]?.width,
+                                imageDimensions[item.id]?.height
+                              ),
+                            ]}
+                            resizeMode="contain"
+                            onLoad={(e) => {
+                              const w = e?.nativeEvent?.source?.width;
+                              const h = e?.nativeEvent?.source?.height;
+                              if (w && h) {
+                                setImageDimensions((prev) => ({
+                                  ...prev,
+                                  [item.id]: { width: w, height: h },
+                                }));
+                              }
+                            }}
                             onError={() =>
                               setBrokenImages((prev) => ({ ...prev, [item.id]: true }))
                             }
@@ -370,6 +451,17 @@ export default function EcommerceStoreView({
                         {item.fabric ? (
                           <Text style={s.metaText}>Tessuto: {item.fabric}</Text>
                         ) : null}
+                        {(() => {
+                          const specs = deriveTechSpecs(item);
+                          return (
+                            <>
+                              <Text style={s.metaText}>Modello: {specs.modelType}</Text>
+                              <Text style={s.metaText}>Coppe/Struttura: {specs.cupAndWire}</Text>
+                              <Text style={s.metaText}>Chiusura/Spalline: {specs.strapsAndClosure}</Text>
+                              <Text style={s.metaText}>Dettagli: {specs.detailsAndSheerness}</Text>
+                            </>
+                          );
+                        })()}
                       </View>
                     </View>
 
@@ -700,8 +792,8 @@ const s = StyleSheet.create({
     borderColor: C.gold,
   },
   topRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  thumbWrapper: { width: 104, height: 104, borderRadius: 10, overflow: "hidden", borderWidth: 1, borderColor: C.border, backgroundColor: C.cardSoft },
-  productImg: { width: 104, height: 104, borderRadius: 10, backgroundColor: C.cardSoft },
+  thumbWrapper: { minWidth: 64, minHeight: 64, borderRadius: 10, overflow: "hidden", borderWidth: 1, borderColor: C.border, backgroundColor: C.cardSoft, alignItems: "center", justifyContent: "center", padding: 2 },
+  productImg: { width: 102, height: 102, borderRadius: 8, backgroundColor: C.cardSoft },
   infoCol: { flex: 1 },
   optionLabel: { color: C.goldLight, fontSize: 12, fontWeight: "700", marginTop: 10 },
   modalBackdrop: {
