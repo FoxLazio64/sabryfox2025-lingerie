@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   BackHandler,
+  Modal,
   Image,
   Platform,
   Pressable,
@@ -12,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import FullImagePreview from '../FullImagePreview';
 
 const AGE_STORAGE_KEY = '@sabryfox_age_gate_v1';
 
@@ -126,6 +128,7 @@ export default function PublicLingerieStorefront({ onExitStorefront, onAgeStatus
   const [underageBlocked, setUnderageBlocked] = useState(false);
   const [birthDateInput, setBirthDateInput] = useState('');
   const [ageError, setAgeError] = useState('');
+  const [previewItem, setPreviewItem] = useState(null);
   const [catalog, setCatalog] = useState([]);
   const [brokenImages, setBrokenImages] = useState({});
   const [imageDimensions, setImageDimensions] = useState({});
@@ -391,7 +394,8 @@ export default function PublicLingerieStorefront({ onExitStorefront, onAgeStatus
           const specs = deriveTechSpecs(item);
           return (
             <View key={item.id} style={styles.card}>
-              <Image
+              <Pressable onPress={() => setPreviewItem(item)} accessibilityRole="button" accessibilityLabel={`Anteprima ${item.name || item.code || 'capo'}`}>
+                <Image
                 source={hasThumb ? { uri: item.imageUrl } : require('../../assets/logo.jpg')}
                 style={[
                   styles.thumbImg,
@@ -415,6 +419,7 @@ export default function PublicLingerieStorefront({ onExitStorefront, onAgeStatus
                 }}
                 onError={() => setBrokenImages((prev) => ({ ...prev, [item.id]: true }))}
               />
+              </Pressable>
               <Text style={styles.cardTitle}>{item.name || item.code}</Text>
               <Text style={styles.metaText}>
                 {item.brand ? `${item.brand} · ` : ''}
@@ -466,12 +471,39 @@ export default function PublicLingerieStorefront({ onExitStorefront, onAgeStatus
             {submitting ? 'Invio richiesta...' : 'Invia richiesta'}
           </Text>
         </Pressable>
-      </View>
+  
+      <Modal
+        visible={Boolean(previewItem)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewItem(null)}
+      >
+        <View style={styles.previewBackdrop}>
+          <View style={styles.previewCard}>
+            {previewItem ? (
+              <FullImagePreview item={previewItem} onClose={() => setPreviewItem(null)} />
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+    </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  previewBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.72)",
+    justifyContent: "center",
+    padding: 16,
+  },
+  previewCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    maxHeight: "90%",
+    overflow: "hidden",
+  },
   gateRoot: {
     flex: 1,
     backgroundColor: PALETTE.dark,
