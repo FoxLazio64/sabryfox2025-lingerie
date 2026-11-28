@@ -166,44 +166,6 @@ export default function AuthGate({ children }) {
     setUsers(next);
   };
 
-  const createOrResetLocalOwner = async () => {
-    const cleanUser = (loginUsername || 'sabrifox2025').trim().toLowerCase();
-    if (!cleanUser) {
-      return Alert.alert('Nome utente mancante', 'Inserisci il nome utente (es. sabrifox2025).');
-    }
-    if (typeof loginPassword !== 'string' || loginPassword.length < 4) {
-      return Alert.alert('Password troppo corta', 'Inserisci una password di almeno 4 caratteri.');
-    }
-    try {
-      const salt = makeSalt();
-      const passwordHash = await hashPassword(loginPassword, salt);
-      const existing = users.find((u) => u.username === cleanUser);
-      const account = existing
-        ? { ...existing, salt, passwordHash, role: existing.role || 'Amministratore unico' }
-        : {
-            id: 'local-' + Date.now(),
-            name: 'Amministratore Unico',
-            username: cleanUser,
-            role: 'Amministratore unico',
-            isOwner: true,
-            salt,
-            passwordHash,
-          };
-      const nextUsers = existing
-        ? users.map((u) => (u.username === cleanUser ? account : u))
-        : [...users, account];
-      await saveUsers(nextUsers);
-      setSession({
-        id: account.id,
-        name: account.name,
-        username: account.username,
-        role: account.role,
-      });
-      setLoginPassword('');
-    } catch {
-      Alert.alert('Errore', 'Impossibile salvare l\'account locale.');
-    }
-  };
 
   const login = async () => {
     const cleanUser = loginUsername.trim().toLowerCase();
@@ -211,16 +173,13 @@ export default function AuthGate({ children }) {
       return Alert.alert('Dati mancanti', 'Inserisci nome utente e password.');
     }
 
-    if (users.length === 0) {
-      return createOrResetLocalOwner();
-    }
 
     const found = users.find((u) => u.username === cleanUser);
 
     if (!found) {
       return Alert.alert(
         'Utente non trovato',
-        `L'utente "${cleanUser}" non è ancora salvato su questo tablet. Tocca "SALVA / AGGIORNA ACCESSO LOCALE" qui sotto per registrarlo con questa password.`
+        `L'utente "${cleanUser}" non è salvato su questo dispositivo. Usa l'Accesso Cloud per autenticarti o richiedere l'accesso.`
       );
     }
 
@@ -289,9 +248,13 @@ export default function AuthGate({ children }) {
         setCloudStatus('Verifica prima la tua email proprietaria dal link inviato da Firebase, poi premi Ricontrolla.');
         return;
       }
-      const allDevices = (await onceVal('ownerDevices')) || {};
+      const activeDeviceId = deviceId || (await getOrCreateLocalDeviceId());
+        if (activeDeviceId && activeDeviceId !== deviceId) {
+          setDeviceId(activeDeviceId);
+        }
+        const allDevices = (await onceVal('ownerDevices')) || {};
       const approvedEntries = Object.entries(allDevices).filter(([, item]) => item && item.approved === true);
-      let isApproved = approvedEntries.some(([key]) => key === deviceId);
+      let isApproved = approvedEntries.some(([key]) => key === activeDeviceId);
 
       if (!isApproved && approvedEntries.length === 0 && deviceId) {
         await setVal(`ownerDevices/${deviceId}`, {
@@ -536,7 +499,6 @@ export default function AuthGate({ children }) {
             <Field label="PASSWORD" value={loginPassword} onChangeText={setLoginPassword} placeholder="La tua password" secureTextEntry />
 
             <Button title="ENTRA CON NOME UTENTE" onPress={login} />
-            <Button title="SALVA / AGGIORNA ACCESSO LOCALE" onPress={createOrResetLocalOwner} secondary />
             <Button title="PASSA A ACCESSO CLOUD (AMMINISTRATORE)" onPress={() => setMode('blocked')} secondary />
           </>
         )}

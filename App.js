@@ -93,7 +93,10 @@ function AppShell() {
                 <Text style={s.shopBtnText}>Gestionale</Text>
               </Pressable>
             ) : null}
-          </View>
+                                      <Pressable style={s.linkBtn} onPress={() => { setSession(null); setForceStoreView(false); }}>
+                <Text style={s.linkBtnText}>Esci</Text>
+              </Pressable>
+            </View>
         ) : (
           <Pressable style={s.shopBtn} onPress={() => setShowAuthModal(true)}>
             <Text style={s.shopBtnText}>Accedi / Area Riservata</Text>
