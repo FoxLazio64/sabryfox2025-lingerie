@@ -256,9 +256,9 @@ export default function AuthGate({ children }) {
       const approvedEntries = Object.entries(allDevices).filter(([, item]) => item && item.approved === true);
       let isApproved = approvedEntries.some(([key]) => key === activeDeviceId);
 
-      if (!isApproved && approvedEntries.length === 0 && deviceId) {
-        await setVal(`ownerDevices/${deviceId}`, {
-          deviceId,
+      if (!isApproved && approvedEntries.length === 0 && activeDeviceId) {
+        await setVal(`ownerDevices/${activeDeviceId}`, {
+          deviceId: activeDeviceId,
           label: 'Tablet Principale',
           platform: 'android',
           approved: true,
@@ -275,7 +275,7 @@ export default function AuthGate({ children }) {
           username: email,
           role: 'Amministratore unico',
           cloudUid: current.uid,
-          deviceId,
+          deviceId: activeDeviceId,
         });
         setCloudPassword('');
       } else {
